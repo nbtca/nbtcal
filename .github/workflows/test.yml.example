@@ -1,0 +1,39 @@
+name: Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build
+      run: npm run build
+
+    # Uncomment to run tests with actual credentials
+    # - name: Run tests
+    #   env:
+    #     TEST_STUDENT_ID: ${{ secrets.TEST_STUDENT_ID }}
+    #     TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+    #     SMTP_HOST: ${{ secrets.SMTP_HOST }}
+    #     SMTP_PORT: ${{ secrets.SMTP_PORT }}
+    #     SMTP_SECURE: ${{ secrets.SMTP_SECURE }}
+    #     SMTP_USER: ${{ secrets.SMTP_USER }}
+    #     SMTP_PASS: ${{ secrets.SMTP_PASS }}
+    #   run: |
+    #     npm run test:flow
