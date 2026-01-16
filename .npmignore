@@ -1,0 +1,31 @@
+# Source files
+src/
+*.ts
+!*.d.ts
+
+# Tests
+test-*.ts
+*.test.ts
+*.spec.ts
+
+# Config files
+.env
+.env.*
+tsconfig.json
+
+# Development
+.github/
+.claude/
+node_modules/
+
+# Documentation
+DEVELOPMENT.md
+DEPLOYMENT.md
+GITHUB_SETUP.md
+PRE-COMMIT-CHECKLIST.md
+STATUS.md
+TODO.md
+
+# Git
+.git/
+.gitignore

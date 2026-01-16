@@ -1,6 +1,6 @@
 {
   "name": "@nbtca/nbtcal",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Extract course schedule from NBT campus system and export to ICS format",
   "type": "module",
   "main": "dist/index.js",
@@ -10,6 +10,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "postbuild": "chmod +x dist/cli.js",
     "dev": "tsc --watch",
     "start": "node dist/cli.js",
     "test:flow": "npm run build && npx tsx test-full-flow.ts",
@@ -23,6 +24,19 @@
   ],
   "author": "",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nbtca/nbtcal.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nbtca/nbtcal/issues"
+  },
+  "homepage": "https://github.com/nbtca/nbtcal#readme",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "dependencies": {
     "axios": "^1.13.2",
     "axios-cookiejar-support": "^6.0.5",
