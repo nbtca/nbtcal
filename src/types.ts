@@ -27,6 +27,14 @@ export interface SMTPConfig {
   pass: string;
 }
 
+export type EmailMode = 'api' | 'smtp';
+
+export interface APIConfig {
+  url: string;
+  apiKey?: string;
+  timeout?: number;
+}
+
 export interface EmailConfig {
   to: string;
   subject: string;
@@ -34,4 +42,17 @@ export interface EmailConfig {
   attachment: Buffer;
   filename: string;
   smtp?: SMTPConfig;
+  api?: APIConfig;
+  mode?: EmailMode;
+}
+
+export interface SendCalendarResponse {
+  success: boolean;
+  messageId?: string;
+  sentAt?: string;
+  error?: {
+    code: string;
+    message: string;
+    retryAfter?: number;
+  };
 }

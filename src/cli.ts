@@ -2,10 +2,13 @@
 
 import inquirer from 'inquirer';
 import { nbtcal } from './index.js';
+import { t, getMessages } from './i18n.js';
 
 async function main() {
-  console.log('\n@nbtca/nbtcal - Course Schedule Exporter');
-  console.log('========================================\n');
+  const msg = getMessages();
+
+  console.log(msg.cliTitle);
+  console.log(msg.cliDivider);
 
   try {
     // Prompt for credentials
@@ -13,15 +16,15 @@ async function main() {
       {
         type: 'input',
         name: 'username',
-        message: 'Student ID:',
-        validate: (input) => input.length > 0 || 'Student ID is required'
+        message: msg.promptStudentId,
+        validate: (input) => input.length > 0 || msg.validationStudentIdRequired
       },
       {
         type: 'password',
         name: 'password',
-        message: 'Password:',
+        message: msg.promptPassword,
         mask: '*',
-        validate: (input) => input.length > 0 || 'Password is required'
+        validate: (input) => input.length > 0 || msg.validationPasswordRequired
       }
     ]);
 
@@ -30,11 +33,11 @@ async function main() {
       {
         type: 'input',
         name: 'startDate',
-        message: 'Semester start date (YYYY-MM-DD):',
+        message: msg.promptStartDate,
         default: '2025-02-24',  // Example: Spring 2025 semester
         validate: (input) => {
           const date = new Date(input);
-          return !isNaN(date.getTime()) || 'Invalid date format (use YYYY-MM-DD)';
+          return !isNaN(date.getTime()) || msg.validationInvalidDate;
         }
       }
     ]);
@@ -44,22 +47,25 @@ async function main() {
       {
         type: 'input',
         name: 'email',
-        message: 'Recipient email address (where to send the schedule):',
-        validate: (input) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input) || 'Invalid email'
+        message: msg.promptEmail,
+        validate: (input) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input) || msg.validationInvalidEmail
       }
     ]);
 
-    // Check if SMTP is configured
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      console.error('\n❌ Error: SMTP email service not configured.');
-      console.error('\nPlease set the following environment variables:');
-      console.error('  SMTP_HOST="smtp.gmail.com"          # SMTP server (optional, defaults to Gmail)');
-      console.error('  SMTP_PORT="587"                     # SMTP port (optional, defaults to 587)');
-      console.error('  SMTP_SECURE="false"                 # Use SSL/TLS (optional, defaults to false)');
-      console.error('  SMTP_USER="your-email@example.com"  # Required');
-      console.error('  SMTP_PASS="your-app-password"       # Required\n');
-      console.error('For Gmail, use an app-specific password: https://support.google.com/accounts/answer/185833');
-      process.exit(1);
+    // Check email mode and configuration
+    const emailMode = (process.env.EMAIL_MODE || 'api') as 'api' | 'smtp';
+
+    if (emailMode === 'smtp') {
+      // SMTP mode requires credentials
+      if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        console.error(msg.smtpModeError);
+        msg.smtpConfigInstructions.forEach(line => console.error(line));
+        console.error(msg.smtpModeErrorHelp);
+        process.exit(1);
+      }
+    } else {
+      // API mode - no configuration needed
+      console.log(msg.usingCloudEmail);
     }
 
     console.log('\n');
@@ -75,7 +81,7 @@ async function main() {
     });
 
   } catch (error: any) {
-    console.error('\n✗ Error:', error.message);
+    console.error(msg.errorPrefix + error.message);
     process.exit(1);
   }
 }
