@@ -20,28 +20,71 @@ npm install -g @nbtca/nbtcal
 
 ## Usage
 
-### As CLI Tool
+### Quick Start (Recommended)
 
-First, configure SMTP settings via environment variables or GitHub Secrets:
-
-```bash
-export SMTP_HOST="smtp.example.com"       # Optional, defaults to Gmail
-export SMTP_PORT="587"                     # Optional, defaults to 587
-export SMTP_SECURE="false"                 # Optional, defaults to false
-export SMTP_USER="sender@example.com"      # Required
-export SMTP_PASS="your-smtp-password"      # Required
-```
-
-Then run:
+Run directly with npx - no configuration needed:
 
 ```bash
-nbtcal
+npx @nbtca/nbtcal
 ```
 
-Follow the interactive prompts to:
+Your course schedule will be emailed to you via our cloud service. Your student credentials are processed **locally** and never sent to our servers - only the generated ICS calendar file is transmitted.
+
+### Three Usage Modes
+
+#### Mode 1: Cloud Email Service (Default - Easiest)
+
+No SMTP configuration required. Just run the tool and provide your information when prompted:
+
+```bash
+npx @nbtca/nbtcal
+```
+
+The tool will:
+1. Process your credentials **locally** on your machine
+2. Fetch course data from NBT's system
+3. Generate ICS calendar file **locally**
+4. Send the ICS file to our cloud service for email delivery
+5. You receive the calendar via email
+
+**Privacy:** Your student ID and password never leave your computer.
+
+#### Mode 2: Self-Hosted SMTP
+
+If you prefer to use your own email server:
+
+```bash
+export EMAIL_MODE=smtp
+export SMTP_HOST="smtp.gmail.com"
+export SMTP_PORT="587"
+export SMTP_SECURE="false"
+export SMTP_USER="your-email@gmail.com"
+export SMTP_PASS="your-app-password"
+
+npx @nbtca/nbtcal
+```
+
+#### Mode 3: Self-Deployed API
+
+Fork this repository and deploy your own Serverless function:
+
+```bash
+# Deploy to Vercel
+vercel --prod
+
+# Use your deployment
+export API_URL="https://your-app.vercel.app/api/send-calendar"
+npx @nbtca/nbtcal
+```
+
+### CLI Interactive Prompts
+
+All modes use the same interactive prompts:
 1. Enter student ID and password
-2. Provide semester start date
+2. Provide semester start date (e.g., 2025-02-24)
 3. Enter recipient email address
+
+If email sending fails, the ICS file will be saved locally for manual import.
 
 ### As Library
 
@@ -146,6 +189,56 @@ src/
 - **ScheduleScraper**: Extracts course data from web pages
 - **ICSConverter**: Converts course data to ICS format
 - **MailService**: Sends ICS file via email
+
+## Deployment (For Maintainers)
+
+### Deploying the Email Service to Vercel
+
+The cloud email service runs on Vercel as a Serverless function.
+
+#### Prerequisites
+
+1. Register for [Resend](https://resend.com) and get an API key (free tier: 3000 emails/month)
+2. Install Vercel CLI: `npm install -g vercel`
+
+#### Steps
+
+```bash
+# 1. Login to Vercel
+vercel login
+
+# 2. Initialize project
+vercel
+
+# 3. Add environment variable
+vercel env add RESEND_API_KEY
+# Paste your Resend API key when prompted
+
+# 4. Deploy to production
+vercel --prod
+```
+
+#### Environment Variables (Vercel)
+
+Configure these in your Vercel project settings:
+
+- `RESEND_API_KEY` (required) - Your Resend API key
+- `API_KEY` (optional) - Add authentication to your API endpoint
+
+#### Update npm Package
+
+After deploying, update the default API URL in `src/mailer/index.ts`:
+
+```typescript
+url: process.env.API_URL || 'https://your-app.vercel.app/api/send-calendar'
+```
+
+Then publish the updated package:
+
+```bash
+npm version minor
+npm publish
+```
 
 ## Development
 

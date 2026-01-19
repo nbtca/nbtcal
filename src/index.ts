@@ -8,6 +8,7 @@ import { AuthService } from './auth/index.js';
 import { ScheduleScraper } from './scraper/index.js';
 import { ICSConverter } from './converter/index.js';
 import { MailService } from './mailer/index.js';
+import { getMessages } from './i18n.js';
 import type { Credentials, SemesterSelection, SMTPConfig } from './types.js';
 
 export interface NbtcalOptions {
@@ -19,45 +20,47 @@ export interface NbtcalOptions {
 }
 
 export async function nbtcal(options: NbtcalOptions): Promise<void> {
+  const msg = getMessages();
+
   console.log('NBT Course Schedule Exporter');
   console.log('============================\n');
 
   // Step 1: Authentication
-  console.log('[1/5] Authenticating...');
+  console.log(msg.step1Authenticating);
   const auth = new AuthService(options.credentials);
   await auth.login();
-  console.log('      ✓ Login successful\n');
+  console.log(msg.step1Success);
 
   // Step 2: Navigate to schedule
-  console.log('[2/5] Accessing schedule system...');
+  console.log(msg.step2Accessing);
   await auth.navigateToSchedule();
-  console.log('      ✓ Ready\n');
+  console.log(msg.step2Success);
 
   // Step 3: Get semester and extract schedule
-  console.log('[3/5] Fetching schedule data...');
+  console.log(msg.step3Fetching);
   const scraper = new ScheduleScraper(auth.getClient());
 
   let semester = options.semester;
   if (!semester) {
     semester = await scraper.getCurrentSemester();
-    console.log(`      Auto-detected semester: ${semester.academicYear} - ${semester.semester}`);
+    console.log(`${msg.step3AutoDetected}${semester.academicYear} - ${semester.semester}`);
   }
 
   const courses = await scraper.extractSchedule(semester);
-  console.log(`      ✓ Found ${courses.length} courses\n`);
+  console.log(`${msg.step3FoundCourses}${courses.length} courses\n`);
 
   if (courses.length === 0) {
-    throw new Error('No courses found. Please check your semester selection.');
+    throw new Error(msg.noCourses);
   }
 
   // Step 4: Convert to ICS
-  console.log('[4/5] Converting to ICS format...');
+  console.log(msg.step4Converting);
   const converter = new ICSConverter(options.semesterStartDate);
   const icsBuffer = converter.convert(courses);
-  console.log(`      ✓ Generated ${icsBuffer.length} bytes\n`);
+  console.log(`${msg.step4Generated}${icsBuffer.length} bytes\n`);
 
   // Step 5: Send email
-  console.log('[5/5] Sending email...');
+  console.log(msg.step5Sending);
   const mailer = new MailService();
   await mailer.send({
     to: options.email,
@@ -67,8 +70,8 @@ export async function nbtcal(options: NbtcalOptions): Promise<void> {
     filename: 'schedule.ics',
     smtp: options.smtp
   });
-  console.log('      ✓ Email sent\n');
+  console.log(msg.step5Success);
 
   console.log('============================');
-  console.log('Success! Check your email.');
+  console.log(msg.finalSuccess);
 }
