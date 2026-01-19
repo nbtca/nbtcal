@@ -1,0 +1,9 @@
+{
+  "name": "nbtcal-api",
+  "version": "1.0.0",
+  "description": "Serverless API for nbtcal email service",
+  "private": true,
+  "dependencies": {
+    "resend": "^4.0.0"
+  }
+}
