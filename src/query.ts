@@ -1,6 +1,6 @@
 import ICAL, { Event as ICalEvent, Time as ICalTime } from 'ical.js';
 import type { ParsedCalendar } from './parse.js';
-import type { CalendarEvent } from './types.js';
+import type { CalendarEvent, UpcomingOptions } from './types.js';
 
 function toCalendarEvent(
   event: ICalEvent,
@@ -50,4 +50,20 @@ export function occurrencesInRange(parsed: ParsedCalendar, start: Date, end: Dat
   const events = parsed.vevents.flatMap((e) => expand(e, start, end));
   events.sort((a, b) => a.start.getTime() - b.start.getTime());
   return events;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const NEXT_HORIZON_DAYS = 365;
+
+export function upcoming(parsed: ParsedCalendar, options: UpcomingOptions = {}): CalendarEvent[] {
+  const days = options.days ?? 30;
+  const now = new Date();
+  const end = new Date(now.getTime() + days * DAY_MS + (DAY_MS - 1));
+  return occurrencesInRange(parsed, now, end);
+}
+
+export function next(parsed: ParsedCalendar, count: number): CalendarEvent[] {
+  const now = new Date();
+  const horizon = new Date(now.getTime() + NEXT_HORIZON_DAYS * DAY_MS);
+  return occurrencesInRange(parsed, now, horizon).slice(0, count);
 }
