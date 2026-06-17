@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "functions": {
-    "api/send-calendar.ts": {
-      "maxDuration": 30,
-      "memory": 1024
-    }
-  }
-}

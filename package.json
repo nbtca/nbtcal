@@ -1,26 +1,29 @@
 {
   "name": "@nbtca/nbtcal",
-  "version": "0.1.1",
-  "description": "Extract course schedule from NBT campus system and export to ICS format",
+  "version": "0.2.0",
+  "description": "Data-only calendar library for the NBTCA ICS feed: fetch, parse, recurrence-aware queries, and heatmap buckets.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "bin": {
-    "nbtcal": "dist/cli.js"
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
   "scripts": {
     "build": "tsc",
-    "postbuild": "chmod +x dist/cli.js",
     "dev": "tsc --watch",
-    "start": "node dist/cli.js",
-    "test:flow": "npm run build && npx tsx test-full-flow.ts",
-    "test:email": "npm run build && npx tsx test-email.ts"
+    "test": "TZ=UTC vitest run",
+    "test:watch": "TZ=UTC vitest",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "ics",
+    "ical",
     "calendar",
-    "schedule",
-    "nbt"
+    "nbtca",
+    "ningbotech"
   ],
   "author": "",
   "license": "MIT",
@@ -37,22 +40,15 @@
     "README.md",
     "LICENSE"
   ],
+  "engines": {
+    "node": ">=20.12.0"
+  },
   "dependencies": {
-    "axios": "^1.13.2",
-    "axios-cookiejar-support": "^6.0.5",
-    "cheerio": "^1.1.2",
-    "crypto-js": "^4.2.0",
-    "ics": "^3.8.1",
-    "inquirer": "^12.0.0",
-    "nodemailer": "^6.9.16",
-    "tough-cookie": "^5.1.2"
+    "ical.js": "^2.2.1"
   },
   "devDependencies": {
-    "@types/crypto-js": "^4.2.2",
-    "@types/inquirer": "^9.0.7",
-    "@types/node": "^22.10.5",
-    "@types/nodemailer": "^6.4.17",
-    "@vercel/node": "^3.0.0",
-    "typescript": "^5.7.2"
+    "@types/node": "^22.19.17",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
   }
 }
