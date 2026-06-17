@@ -14,8 +14,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "TZ=UTC vitest run",
-    "test:watch": "TZ=UTC vitest",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "prepublishOnly": "npm run build"
   },
   "keywords": [

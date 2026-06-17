@@ -24,8 +24,9 @@ describe('upcoming', () => {
   it('respects a custom day count', () => {
     const parsed = parseCalendar(WEEKLY_ICS);
     const events = upcoming(parsed, { days: 14 });
-    // 2026-06-01..2026-06-15 covers 06-01, 06-08, 06-15 = 3.
-    expect(events).toHaveLength(3);
+    // Rolling 14x24h window 2026-06-01T00:00Z..2026-06-15T00:00Z covers
+    // 06-01 and 06-08 (the 06-15T12:00 occurrence falls just past the end).
+    expect(events).toHaveLength(2);
   });
 });
 

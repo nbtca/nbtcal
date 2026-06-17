@@ -7,7 +7,6 @@ export type { ParsedCalendar } from './parse.js';
 export { occurrencesInRange, upcoming, next, heatmap } from './query.js';
 export type {
   CalendarEvent,
-  DateRange,
   UpcomingOptions,
   HeatmapOptions,
   HeatmapBucket,

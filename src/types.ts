@@ -9,11 +9,6 @@ export interface CalendarEvent {
   recurring: boolean;
 }
 
-export interface DateRange {
-  start: Date;
-  end: Date;
-}
-
 export interface UpcomingOptions {
   days?: number;
 }
@@ -22,6 +17,8 @@ export interface HeatmapOptions {
   start: Date;
   end: Date;
   bucket?: 'day' | 'week';
+  /** IANA time zone events are bucketed in. Defaults to 'Asia/Shanghai'. */
+  timeZone?: string;
 }
 
 export interface HeatmapBucket {

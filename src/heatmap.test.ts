@@ -30,6 +30,36 @@ describe('heatmap (day buckets)', () => {
   });
 });
 
+describe('heatmap timezone', () => {
+  // 2026-06-19T17:00Z == 2026-06-20T01:00 in Asia/Shanghai, but still 06-19 in UTC.
+  const BOUNDARY_ICS = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//nbtca//test//EN
+BEGIN:VEVENT
+UID:boundary-1
+SUMMARY:Late Night
+DTSTART:20260619T170000Z
+DTEND:20260619T180000Z
+END:VEVENT
+END:VCALENDAR`;
+
+  it('buckets by Asia/Shanghai by default (after 16:00 UTC counts as next day)', () => {
+    const parsed = parseCalendar(BOUNDARY_ICS);
+    const buckets = heatmap(parsed, { start: D('2026-06-20T00:00:00Z'), end: D('2026-06-20T00:00:00Z') });
+    expect(buckets).toEqual([{ date: '2026-06-20', count: 1 }]);
+  });
+
+  it('honors a timeZone override', () => {
+    const parsed = parseCalendar(BOUNDARY_ICS);
+    const buckets = heatmap(parsed, {
+      start: D('2026-06-19T00:00:00Z'),
+      end: D('2026-06-19T00:00:00Z'),
+      timeZone: 'UTC',
+    });
+    expect(buckets).toEqual([{ date: '2026-06-19', count: 1 }]);
+  });
+});
+
 describe('heatmap (week buckets)', () => {
   it('buckets by ISO week start (Monday) and is dense', () => {
     const parsed = parseCalendar(MIXED_ICS);
