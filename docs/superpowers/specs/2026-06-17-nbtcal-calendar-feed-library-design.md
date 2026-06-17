@@ -45,6 +45,10 @@ deliberate choice to keep complexity down.
   dependencies.
 - **Owns all date logic.** Timezones, all-day vs timed events, and **recurrence
   expansion** are nbtcal's job. Consumers never touch raw ICS.
+- **Code-first repo.** Keep the codebase lean on prose — no status / quickstart /
+  deployment / wiki sprawl. The only persistent markdown is a minimal README,
+  this spec, and the orthogonal governance docs. Prefer self-documenting code,
+  tests, and small focused modules. "Talk is cheap, show me the code."
 
 ## API surface (hybrid: pure functions + thin convenience wrapper)
 
