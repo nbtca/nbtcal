@@ -1,58 +1,41 @@
-export interface Credentials {
-  username: string;
-  password: string;
+export interface CalendarEvent {
+  uid: string;
+  title: string | null;
+  start: Date;
+  end: Date | null;
+  isAllDay: boolean;
+  location: string | null;
+  description: string | null;
+  recurring: boolean;
 }
 
-export interface SemesterSelection {
-  academicYear: string;
-  semester: string;
+export interface UpcomingOptions {
+  days?: number;
 }
 
-export interface CourseSchedule {
-  name: string;
-  teacher: string;
-  location: string;
-  weekday: number;
-  startTime: string;
-  endTime: string;
-  weeks: number[];
-  courseType?: string;
+export interface HeatmapOptions {
+  start: Date;
+  end: Date;
+  bucket?: 'day' | 'week';
+  /** IANA time zone events are bucketed in. Defaults to 'Asia/Shanghai'. */
+  timeZone?: string;
 }
 
-export interface SMTPConfig {
-  host: string;
-  port: number;
-  secure: boolean;
-  user: string;
-  pass: string;
+export interface HeatmapBucket {
+  date: string;
+  count: number;
 }
 
-export type EmailMode = 'api' | 'smtp';
-
-export interface APIConfig {
-  url: string;
-  apiKey?: string;
-  timeout?: number;
+export class FeedFetchError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = 'FeedFetchError';
+  }
 }
 
-export interface EmailConfig {
-  to: string;
-  subject: string;
-  body: string;
-  attachment: Buffer;
-  filename: string;
-  smtp?: SMTPConfig;
-  api?: APIConfig;
-  mode?: EmailMode;
-}
-
-export interface SendCalendarResponse {
-  success: boolean;
-  messageId?: string;
-  sentAt?: string;
-  error?: {
-    code: string;
-    message: string;
-    retryAfter?: number;
-  };
+export class FeedParseError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = 'FeedParseError';
+  }
 }
