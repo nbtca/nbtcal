@@ -58,56 +58,91 @@ const NEXT_HORIZON_DAYS = 365;
 export function upcoming(parsed: ParsedCalendar, options: UpcomingOptions = {}): CalendarEvent[] {
   const days = options.days ?? 30;
   const now = new Date();
-  const end = new Date(now.getTime() + days * DAY_MS + (DAY_MS - 1));
+  const end = new Date(now.getTime() + days * DAY_MS);
   return occurrencesInRange(parsed, now, end);
 }
 
+// next() scans at most one year ahead so an unbounded RRULE stays bounded. It
+// may therefore return fewer than `count` occurrences when the following one is
+// further out than the horizon — a deliberate cap for the "what's coming up" use.
 export function next(parsed: ParsedCalendar, count: number): CalendarEvent[] {
   const now = new Date();
   const horizon = new Date(now.getTime() + NEXT_HORIZON_DAYS * DAY_MS);
-  return occurrencesInRange(parsed, now, horizon).slice(0, count);
+  return occurrencesInRange(parsed, now, horizon).slice(0, Math.max(0, count));
 }
 
-function dateKey(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
+const HEATMAP_DEFAULT_TIME_ZONE = 'Asia/Shanghai';
+
+// The calendar date (YYYY-MM-DD) of an instant as seen in a given IANA time
+// zone. en-CA formats as an ISO-style YYYY-MM-DD string.
+function civilDateKey(date: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
+// A UTC-midnight proxy Date for an instant's civil date in the target zone,
+// used for time-zone-independent day/week arithmetic (weekday, stepping).
+function civilProxy(date: Date, timeZone: string): Date {
+  const [y, m, d] = civilDateKey(date, timeZone).split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+function proxyKey(proxy: Date): string {
+  const y = proxy.getUTCFullYear();
+  const m = String(proxy.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(proxy.getUTCDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
 
-function startOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function startOfWeek(date: Date): Date {
-  const d = startOfDay(date);
-  const day = d.getDay(); // 0=Sun..6=Sat
-  const diff = (day + 6) % 7; // days since Monday
-  d.setDate(d.getDate() - diff);
-  return d;
+// Monday of the week containing the given UTC-midnight proxy.
+function weekStartProxy(proxy: Date): Date {
+  const out = new Date(proxy);
+  const diff = (out.getUTCDay() + 6) % 7; // days since Monday
+  out.setUTCDate(out.getUTCDate() - diff);
+  return out;
 }
 
 export function heatmap(parsed: ParsedCalendar, options: HeatmapOptions): HeatmapBucket[] {
   const bucket = options.bucket ?? 'day';
-  // Extend end to the last millisecond of the day so timed events (e.g. 12:00Z)
-  // on options.end's calendar date are included when options.end is midnight.
-  const endOfDay = new Date(startOfDay(options.end).getTime() + DAY_MS - 1);
-  const events = occurrencesInRange(parsed, options.start, endOfDay);
+  const timeZone = options.timeZone ?? HEATMAP_DEFAULT_TIME_ZONE;
+
+  // Pad the query two days each side so events whose civil date (in the target
+  // zone) lands on a boundary day are captured regardless of the zone's UTC
+  // offset. Events outside the dense range produce keys that are never emitted,
+  // so they are harmlessly ignored.
+  const events = occurrencesInRange(
+    parsed,
+    new Date(options.start.getTime() - 2 * DAY_MS),
+    new Date(options.end.getTime() + 2 * DAY_MS),
+  );
+
+  const bucketKey = (date: Date): string => {
+    const proxy = civilProxy(date, timeZone);
+    return proxyKey(bucket === 'week' ? weekStartProxy(proxy) : proxy);
+  };
 
   const counts = new Map<string, number>();
   for (const event of events) {
-    const key = bucket === 'week' ? dateKey(startOfWeek(event.start)) : dateKey(startOfDay(event.start));
+    const key = bucketKey(event.start);
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
 
+  const cursor = bucket === 'week'
+    ? weekStartProxy(civilProxy(options.start, timeZone))
+    : civilProxy(options.start, timeZone);
+  const last = bucket === 'week'
+    ? weekStartProxy(civilProxy(options.end, timeZone))
+    : civilProxy(options.end, timeZone);
+
   const buckets: HeatmapBucket[] = [];
-  const stepStart = bucket === 'week' ? startOfWeek(options.start) : startOfDay(options.start);
-  const cursor = new Date(stepStart);
-  const last = startOfDay(options.end);
   while (cursor <= last) {
-    const key = dateKey(cursor);
+    const key = proxyKey(cursor);
     buckets.push({ date: key, count: counts.get(key) ?? 0 });
-    cursor.setDate(cursor.getDate() + (bucket === 'week' ? 7 : 1));
+    cursor.setUTCDate(cursor.getUTCDate() + (bucket === 'week' ? 7 : 1));
   }
   return buckets;
 }
