@@ -1,0 +1,75 @@
+title: "[Calendar] "
+labels: ["calendar"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this discussion form for school calendar sources, consented member dates, and NBTCA event schedules.
+
+        If this form is used at organization level, the file name must match the GitHub Discussions category slug.
+  - type: dropdown
+    id: source_type
+    attributes:
+      label: Source type
+      options:
+        - School academic calendar
+        - Member date policy or consented member date
+        - NBTCA event or milestone
+        - Calendar distribution or downstream sync
+    validations:
+      required: true
+  - type: input
+    id: date_range
+    attributes:
+      label: Date range
+      description: Academic year, semester, month, or exact date range.
+      placeholder: 2026-2027 academic year, 2026 spring semester, or 2026-09-01 to 2026-09-30
+    validations:
+      required: true
+  - type: textarea
+    id: current_state
+    attributes:
+      label: Current state
+      description: What is known now, and what is missing or uncertain?
+    validations:
+      required: true
+  - type: textarea
+    id: source_evidence
+    attributes:
+      label: Source evidence
+      description: Link official notices, documents, meeting notes, or consent records. Do not paste private personal data.
+    validations:
+      required: true
+  - type: textarea
+    id: requested_decision
+    attributes:
+      label: Requested decision
+      description: What should the organization agree on before implementation?
+    validations:
+      required: true
+  - type: textarea
+    id: affected_outputs
+    attributes:
+      label: Affected outputs
+      description: List affected repositories, docs, calendars, or downstream subscriptions.
+      value: |
+        - nbtca/documents:
+        - nbtca/nbtcal:
+        - Downstream calendar:
+    validations:
+      required: true
+  - type: textarea
+    id: privacy_check
+    attributes:
+      label: Privacy check
+      description: Note whether personal data is involved, whether consent exists, and what should stay private.
+    validations:
+      required: true
+  - type: checkboxes
+    id: tracking
+    attributes:
+      label: Tracking
+      options:
+        - label: This discussion should be linked from the organization Roadmap tracking issue.
+        - label: This change affects generated ICS output or calendar subscriptions.
+        - label: This change needs documentation in nbtca/documents.
