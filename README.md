@@ -31,14 +31,6 @@ entries — so consumers can render a contiguous grid.
 Low-level building blocks (`fetchFeed`, `parseCalendar`, `occurrencesInRange`,
 `upcoming`, `next`, `heatmap`) are exported for custom or offline use.
 
-## Calendar source maintenance
-
-This package distributes calendar sources that are maintained outside the
-codebase. School academic calendars, consented member dates, and NBTCA event
-schedules should be discussed publicly before they are imported or distributed.
-See [Calendar source maintenance](./docs/calendar-maintenance.md) for the
-discussion workflow, privacy rules, and Roadmap tracking process.
-
 ## License
 
 MIT
