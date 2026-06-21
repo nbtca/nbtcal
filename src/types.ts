@@ -13,6 +13,10 @@ export interface UpcomingOptions {
   days?: number;
 }
 
+export interface PastOptions {
+  days?: number;
+}
+
 export interface HeatmapOptions {
   start: Date;
   end: Date;

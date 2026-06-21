@@ -1,6 +1,6 @@
 {
   "name": "@nbtca/nbtcal",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Data-only calendar library for the NBTCA ICS feed: fetch, parse, recurrence-aware queries, and heatmap buckets.",
   "type": "module",
   "main": "dist/index.js",

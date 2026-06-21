@@ -4,10 +4,11 @@ export { fetchFeed, DEFAULT_FEED_URL } from './feed.js';
 export type { FetchFeedOptions } from './feed.js';
 export { parseCalendar } from './parse.js';
 export type { ParsedCalendar } from './parse.js';
-export { occurrencesInRange, upcoming, next, heatmap } from './query.js';
+export { occurrencesInRange, upcoming, past, next, heatmap } from './query.js';
 export type {
   CalendarEvent,
   UpcomingOptions,
+  PastOptions,
   HeatmapOptions,
   HeatmapBucket,
 } from './types.js';

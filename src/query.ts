@@ -1,6 +1,6 @@
 import ICAL, { Event as ICalEvent, Time as ICalTime } from 'ical.js';
 import type { ParsedCalendar } from './parse.js';
-import type { CalendarEvent, UpcomingOptions, HeatmapOptions, HeatmapBucket } from './types.js';
+import type { CalendarEvent, UpcomingOptions, PastOptions, HeatmapOptions, HeatmapBucket } from './types.js';
 
 function toCalendarEvent(
   event: ICalEvent,
@@ -60,6 +60,13 @@ export function upcoming(parsed: ParsedCalendar, options: UpcomingOptions = {}):
   const now = new Date();
   const end = new Date(now.getTime() + days * DAY_MS);
   return occurrencesInRange(parsed, now, end);
+}
+
+export function past(parsed: ParsedCalendar, options: PastOptions = {}): CalendarEvent[] {
+  const days = options.days ?? 30;
+  const now = new Date();
+  const start = new Date(now.getTime() - days * DAY_MS);
+  return occurrencesInRange(parsed, start, now);
 }
 
 // next() scans at most one year ahead so an unbounded RRULE stays bounded. It
