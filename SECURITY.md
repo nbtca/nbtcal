@@ -1,85 +1,42 @@
 # Security Policy
 
-## Sensitive Information
+## Data boundary
 
-This project requires configuration of sensitive information:
+`@nbtca/nbtcal` is a data-only library. It does not accept or store student
+credentials, cookies, verification codes, email configuration or session
+files. The private timetable API accepts only an authenticated transport
+provided by its host application.
 
-### Never Commit These Files
+The host application is responsible for:
 
-- `.env` - Production environment variables
-- `.env.test` - Test environment variables containing real credentials
-- Any files containing real passwords or API keys
+- collecting credentials without command-line arguments or terminal echo;
+- restricting the transport to the intended school hosts and read-only routes;
+- storing bearer sessions with appropriate platform permissions;
+- clearing sessions on logout or expiry;
+- writing the generated ICS file to a user-selected location.
 
-### Use Example Files Instead
+## Privacy guarantees
 
-- `.env.example` - Template for SMTP configuration
-- `.env.test.example` - Template for test credentials
+- Timetable parsing uses an explicit field allowlist and discards the `xsxx`
+  student-information object.
+- Unknown practice rows are reduced to a small identity-free field allowlist;
+  the original object is never retained or returned.
+- ICS UIDs are deterministic hashes of teaching-class and occurrence data; they
+  do not contain a student id.
+- Public errors never include response bodies, request forms, cookies or remote
+  error objects.
+- Tests and fixtures must be synthetic or fully anonymized. Real credentials and
+  raw student responses must never be committed or used in public CI.
 
-Copy example files and fill in your own credentials locally.
+## Integration testing
 
-## Credentials Required
+Live school-system tests must be opt-in and run locally with an account whose
+owner has authorized the test. Credentials must be entered interactively, kept
+only in process memory and excluded from logs, environment variables, command
+arguments and files.
 
-### For Testing
+## Reporting vulnerabilities
 
-Set environment variables:
-```bash
-export TEST_STUDENT_ID="your-student-id"
-export TEST_PASSWORD="your-password"
-export SMTP_HOST="your-smtp-host"
-export SMTP_USER="your-email"
-export SMTP_PASS="your-password"
-```
-
-Or create `.env.test` from `.env.test.example`.
-
-### For Production
-
-Configure SMTP via:
-- Environment variables (recommended)
-- `.env` file (copy from `.env.example`)
-
-## Reporting Security Issues
-
-If you discover a security vulnerability, please report it through GitHub Security Advisories:
-
-https://github.com/nbtca/nbtcal/security/advisories/new
-
-Do not open public issues for security vulnerabilities.
-
-## Best Practices
-
-1. **Never hardcode credentials** in source code
-2. **Use app-specific passwords** for email services
-3. **Enable 2FA** on all accounts
-4. **Rotate passwords** regularly
-5. **Review commits** before pushing to ensure no sensitive data
-6. **Use `.gitignore`** to exclude sensitive files
-
-## Password Requirements
-
-- SMTP passwords should be app-specific passwords, not account passwords
-- Use strong, unique passwords for each service
-- Store passwords securely (password manager recommended)
-
-## Encryption
-
-- Student passwords are encrypted with AES-CBC before transmission
-- Credentials are never logged or stored permanently
-- All communication with NBT servers uses HTTPS
-
-## GitHub Secrets
-
-For CI/CD and GitHub Actions, configure secrets in repository settings:
-
-Settings → Secrets and variables → Actions
-
-Required secrets:
-- `SMTP_HOST`
-- `SMTP_PORT`
-- `SMTP_SECURE`
-- `SMTP_USER`
-- `SMTP_PASS`
-
-## Contact
-
-For security concerns: Use GitHub Security Advisories
+Report vulnerabilities through
+[GitHub Security Advisories](https://github.com/nbtca/nbtcal/security/advisories/new).
+Do not publish credential, session or timetable material in a public issue.

@@ -1,7 +1,7 @@
 {
   "name": "@nbtca/nbtcal",
-  "version": "0.3.1",
-  "description": "Data-only calendar library for the NBTCA ICS feed: fetch, parse, recurrence-aware queries, and heatmap buckets.",
+  "version": "0.4.0",
+  "description": "Data-only calendar library for public feeds and authenticated personal timetables.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./timetable": {
+      "types": "./dist/timetable/index.d.ts",
+      "import": "./dist/timetable/index.js"
     }
   },
   "scripts": {
@@ -38,6 +42,7 @@
   "files": [
     "dist",
     "README.md",
+    "SECURITY.md",
     "LICENSE"
   ],
   "engines": {
