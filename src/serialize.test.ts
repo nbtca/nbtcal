@@ -63,3 +63,19 @@ describe('eventToICS', () => {
     expect(ics).not.toContain('DESCRIPTION');
   });
 });
+
+describe('eventToICS line folding', () => {
+  it('folds content lines longer than 75 octets; short lines are unchanged', () => {
+    const long = 'x'.repeat(200);
+    const ics = eventToICS({ ...base, description: long }, { now });
+    const physical = ics.split('\r\n');
+    // every physical line is at most 75 octets
+    for (const line of physical) {
+      expect(Buffer.byteLength(line, 'utf-8')).toBeLessThanOrEqual(75);
+    }
+    // the DESCRIPTION value was folded onto at least one continuation line (leading space)
+    expect(physical.some((l) => l.startsWith(' '))).toBe(true);
+    // a short line like UID is not folded
+    expect(physical).toContain('UID:evt-1');
+  });
+});

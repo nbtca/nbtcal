@@ -34,6 +34,29 @@ export interface EventToICSOptions {
   now?: Date;
 }
 
+/** RFC 5545 §3.1 content-line folding: split at 75 octets, continuations begin with a space. */
+function foldLine(line: string): string {
+  if (Buffer.byteLength(line, 'utf-8') <= 75) return line;
+  const chunks: string[] = [];
+  let current = '';
+  let currentBytes = 0;
+  for (const ch of line) {
+    const chBytes = Buffer.byteLength(ch, 'utf-8');
+    // first physical line has 75 octets of budget; continuations reserve 1 for the leading space
+    const budget = chunks.length === 0 ? 75 : 74;
+    if (currentBytes + chBytes > budget) {
+      chunks.push(current);
+      current = ch;
+      currentBytes = chBytes;
+    } else {
+      current += ch;
+      currentBytes += chBytes;
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks.join('\r\n ');
+}
+
 export function eventToICS(event: CalendarEvent, options: EventToICSOptions = {}): string {
   const prodId = options.prodId ?? DEFAULT_PRODID;
   const now = options.now ?? new Date();
@@ -64,5 +87,5 @@ export function eventToICS(event: CalendarEvent, options: EventToICSOptions = {}
 
   lines.push('END:VEVENT', 'END:VCALENDAR');
 
-  return lines.join('\r\n') + '\r\n';
+  return lines.map(foldLine).join('\r\n') + '\r\n';
 }
