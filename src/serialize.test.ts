@@ -89,3 +89,23 @@ describe('eventToICS round-trip', () => {
     expect(parsed.vevents[0]!.summary).toBe('Hack Night');
   });
 });
+
+describe('eventToICS TEXT escaping (UID) and multi-byte folding round-trip', () => {
+  it('escapes special characters in UID so the output stays parseable', () => {
+    const weird = { ...base, uid: 'evt;weird,uid\\with\nnewline' };
+    const ics = eventToICS(weird, { now });
+    const parsed = parseCalendar(ics);
+    expect(parsed.vevents).toHaveLength(1);
+    expect(parsed.vevents[0]!.summary).toBe('Hack Night');
+  });
+
+  it('folds and round-trips a multi-byte (CJK) description losslessly', () => {
+    const cjk = '活动通知：' + '技术分享会'.repeat(50);
+    const ics = eventToICS({ ...base, description: cjk }, { now });
+    for (const line of ics.split('\r\n')) {
+      expect(Buffer.byteLength(line, 'utf-8')).toBeLessThanOrEqual(75);
+    }
+    const parsed = parseCalendar(ics);
+    expect(parsed.vevents[0]!.description).toBe(cjk);
+  });
+});

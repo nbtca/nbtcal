@@ -64,11 +64,11 @@ export function eventToICS(event: CalendarEvent, options: EventToICSOptions = {}
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    `PRODID:${prodId}`,
+    `PRODID:${escapeText(prodId)}`,
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'BEGIN:VEVENT',
-    `UID:${event.uid}`,
+    `UID:${escapeText(event.uid)}`,
     `DTSTAMP:${formatUTC(now)}`,
   ];
 
