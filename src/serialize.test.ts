@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { eventToICS } from './serialize.js';
+import { parseCalendar } from './parse.js';
 import type { CalendarEvent } from './types.js';
 
 const base: CalendarEvent = {
@@ -77,5 +78,14 @@ describe('eventToICS line folding', () => {
     expect(physical.some((l) => l.startsWith(' '))).toBe(true);
     // a short line like UID is not folded
     expect(physical).toContain('UID:evt-1');
+  });
+});
+
+describe('eventToICS round-trip', () => {
+  it('produces output that parseCalendar accepts as one event', () => {
+    const ics = eventToICS(base, { now });
+    const parsed = parseCalendar(ics);
+    expect(parsed.vevents).toHaveLength(1);
+    expect(parsed.vevents[0]!.summary).toBe('Hack Night');
   });
 });
