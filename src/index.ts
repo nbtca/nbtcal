@@ -15,3 +15,7 @@ export type {
   HeatmapBucket,
 } from './types.js';
 export { FeedFetchError, FeedParseError } from './types.js';
+export {
+  isAcademicBreakEvent, findBreakEvents, currentAcademicWindow, inferWeekOneMonday,
+} from './academic-calendar.js';
+export type { AcademicWindow, OnBreak } from './academic-calendar.js';
