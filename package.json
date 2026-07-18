@@ -1,6 +1,6 @@
 {
   "name": "@nbtca/nbtcal",
-  "version": "0.4.0",
+  "version": "0.3.3",
   "description": "Data-only calendar library for public feeds and authenticated personal timetables.",
   "type": "module",
   "main": "dist/index.js",
