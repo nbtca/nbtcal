@@ -16,6 +16,8 @@
     }
   },
   "scripts": {
+    "clean": "node scripts/clean.mjs",
+    "prebuild": "npm run clean",
     "build": "tsc",
     "dev": "tsc --watch",
     "test": "vitest run",
