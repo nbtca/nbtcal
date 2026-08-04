@@ -6,24 +6,24 @@ on:
 
 permissions:
   contents: read
-  id-token: write # OIDC for npm trusted publishing (provenance is automatic)
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
-      # Trusted publishing needs npm >= 11.5.1. Pin it (not @latest): npm 12+ dropped
-      # support for Node 20, so `npm install -g npm@latest` fails EBADENGINE here.
       - run: npm install -g npm@11.5.1
-      - run: npm ci
-      - run: npm test
-      - run: npm run build
       - name: Check tag matches package version
         run: |
           TAG_VERSION=${GITHUB_REF#refs/tags/v}
@@ -32,5 +32,25 @@ jobs:
             echo "Version mismatch: tag v$TAG_VERSION, package.json v$PKG_VERSION" >&2
             exit 1
           fi
-      # Auth via OIDC trusted publishing — no NPM_TOKEN, no stored secret.
+      - run: npm ci
+      - run: npm run check
       - run: npm publish --access public
+
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            exit 0
+          fi
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --generate-notes \
+            --title "$GITHUB_REF_NAME"
