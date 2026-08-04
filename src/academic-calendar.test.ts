@@ -42,6 +42,10 @@ describe('isAcademicBreakEvent', () => {
   it('rejects an unprefixed event even when its title matches a known break', () => {
     expect(isAcademicBreakEvent(ev('寒假', '2027-01-20', '2027-02-26'))).toBe(false);
   });
+  it('rejects empty and multiline institutional prefixes', () => {
+    expect(isAcademicBreakEvent(ev('[] 寒假', '2027-01-20', '2027-02-26'))).toBe(false);
+    expect(isAcademicBreakEvent(ev('[NBT\nsource] 寒假', '2027-01-20', '2027-02-26'))).toBe(false);
+  });
   it('counts all-day break length by calendar date across daylight saving', () => {
     const previousTimeZone = process.env['TZ'];
     process.env['TZ'] = 'America/Los_Angeles';

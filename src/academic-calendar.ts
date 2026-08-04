@@ -4,8 +4,11 @@ const DAY_MS = 86400000;
 
 function institutionalTitle(e: CalendarEvent): string | null {
   if (!e.title) return null;
-  const match = /^\[[^\]\r\n]+\]\s*(.+)$/.exec(e.title.trim());
-  const title = match?.[1]?.trim();
+  const rawTitle = e.title.trim();
+  if (!rawTitle.startsWith('[') || rawTitle.includes('\r') || rawTitle.includes('\n')) return null;
+  const prefixEnd = rawTitle.indexOf(']');
+  if (prefixEnd < 2) return null;
+  const title = rawTitle.slice(prefixEnd + 1).trim();
   return title || null;
 }
 
