@@ -159,6 +159,25 @@ describe('parseTimetablePayload', () => {
     expect(timetable.calendarDays).toEqual([]);
     expect(timetable.warnings).toContainEqual({ code: 'CALENDAR_DATES_UNAVAILABLE' });
   });
+
+  it('normalizes an untimed practice course from its composite field', () => {
+    const timetable = parseTimetablePayload({
+      xsxx: { XNM: '2026', XQM: '3' },
+      kbList: [],
+      sjkList: [{ sjkcgs: '大学生体能测试Ⅰ◇体育老师(共1周)/16周' }],
+    }, { academicYear: '2026', semester: '3' });
+
+    expect(timetable.untimedCourses).toEqual([{
+      sourceId: null,
+      courseName: '大学生体能测试Ⅰ',
+      teacherNames: ['体育老师'],
+      campus: null,
+      location: null,
+      weeks: [16],
+      kind: 'practice',
+    }]);
+    expect(timetable.unresolvedItems).toEqual([]);
+  });
 });
 
 describe('parsePeriodPayload', () => {
