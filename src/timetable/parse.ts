@@ -59,7 +59,23 @@ function decodeHtml(value: string): string {
 }
 
 function stripTags(value: string): string {
-  return decodeHtml(value.replace(/<[^>]*>/g, '')).replace(/\s+/g, ' ').trim();
+  let text = '';
+  let inTag = false;
+  let quote: '"' | "'" | null = null;
+  for (const character of value) {
+    if (!inTag) {
+      if (character === '<') inTag = true;
+      else text += character;
+      continue;
+    }
+    if (quote) {
+      if (character === quote) quote = null;
+      continue;
+    }
+    if (character === '"' || character === "'") quote = character;
+    else if (character === '>') inTag = false;
+  }
+  return decodeHtml(text).replace(/\s+/g, ' ').trim();
 }
 
 function readAttribute(attributes: string, name: string): string | null {
