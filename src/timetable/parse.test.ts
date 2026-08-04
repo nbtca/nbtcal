@@ -57,7 +57,7 @@ describe('parseWeekExpression', () => {
 });
 
 describe('parseTimetablePayload', () => {
-  it('normalizes meetings and periods without guessing an unverified date-map schema', () => {
+  it('normalizes meetings, periods, and authoritative calendar dates', () => {
     const timetable = parseTimetablePayload({
       xsxx: { XNM: '2026', XQM: '3' },
       kbList: [{
@@ -85,14 +85,18 @@ describe('parseTimetablePayload', () => {
       weeks: [1, 3, 5, 7, 9, 11, 13, 15],
     })]);
     expect(timetable.periods.map((period) => period.period)).toEqual([3, 5]);
-    expect(timetable.calendarDays).toEqual([]);
+    expect(timetable.calendarDays).toEqual([{
+      week: 1,
+      weekday: 2,
+      date: '2026-09-08',
+    }]);
     expect(timetable.unresolvedItems).toEqual([{
       kind: 'practice',
       itemIndex: 0,
       sourceFields: { kcmc: '实践课程', qsjsz: '1-2周' },
     }]);
     expect(timetable.warnings).toContainEqual(expect.objectContaining({ code: 'UNRESOLVED_PRACTICE' }));
-    expect(timetable.warnings).toContainEqual(expect.objectContaining({ code: 'CALENDAR_DATES_UNAVAILABLE' }));
+    expect(timetable.warnings).not.toContainEqual(expect.objectContaining({ code: 'CALENDAR_DATES_UNAVAILABLE' }));
   });
 
   it('rejects a response for a different term without exposing response data', () => {
@@ -134,6 +138,21 @@ describe('parseTimetablePayload', () => {
     expect(timetable.warnings).toContainEqual({
       code: 'INVALID_MEETING', itemIndex: 0, field: 'weekday',
     });
+  });
+
+  it('rejects conflicting dates for the same teaching day', () => {
+    const timetable = parseTimetablePayload({
+      xsxx: { XNM: '2026', XQM: '3' },
+      kbList: [],
+      sjkList: [],
+      rqazcList: [
+        { zc: '1', xqj: '1', rq: '2026-09-07' },
+        { zc: '1', xqj: '1', rq: '2026-09-14' },
+      ],
+    }, { academicYear: '2026', semester: '3' });
+
+    expect(timetable.calendarDays).toEqual([]);
+    expect(timetable.warnings).toContainEqual({ code: 'CALENDAR_DATES_UNAVAILABLE' });
   });
 });
 

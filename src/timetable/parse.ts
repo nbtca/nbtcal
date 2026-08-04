@@ -187,6 +187,54 @@ function parseWeekday(value: string | null): Weekday | null {
   return Number(value) as Weekday;
 }
 
+function parsePositiveInteger(value: string | null, maximum: number): number | null {
+  if (!value || !/^\d+$/.test(value)) return null;
+  const parsed = Number.parseInt(value, 10);
+  return parsed >= 1 && parsed <= maximum ? parsed : null;
+}
+
+function parseCalendarDate(value: string | null): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value ?? '');
+  if (!match?.[1] || !match[2] || !match[3]) return null;
+  const year = Number.parseInt(match[1], 10);
+  const month = Number.parseInt(match[2], 10);
+  const day = Number.parseInt(match[3], 10);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year
+    && date.getUTCMonth() === month - 1
+    && date.getUTCDate() === day
+    ? date
+    : null;
+}
+
+function parseCalendarDays(value: unknown): TimetableCalendarDay[] {
+  if (!Array.isArray(value)) return [];
+  const days = new Map<string, TimetableCalendarDay>();
+  const conflicts = new Set<string>();
+  for (const row of value) {
+    if (!isRecord(row)) continue;
+    const week = parsePositiveInteger(scalarString(row, ['zc', 'ZC']), 60);
+    const weekday = parseWeekday(scalarString(row, ['xqj', 'XQJ']));
+    const dateText = scalarString(row, ['rq', 'RQ']);
+    const date = parseCalendarDate(dateText);
+    if (!week || !weekday || !date || !dateText) continue;
+    const actualWeekday = ((date.getUTCDay() + 6) % 7 + 1) as Weekday;
+    if (actualWeekday !== weekday) continue;
+    const key = `${week}:${weekday}`;
+    if (conflicts.has(key)) continue;
+    const existing = days.get(key);
+    if (existing && existing.date !== dateText) {
+      days.delete(key);
+      conflicts.add(key);
+      continue;
+    }
+    days.set(key, { week, weekday, date: dateText });
+  }
+  return [...days.values()].sort((left, right) => (
+    left.week - right.week || left.weekday - right.weekday
+  ));
+}
+
 function splitTeachers(value: string | null): string[] {
   if (!value) return [];
   return [...new Set(value.split(/[、,，;；/]+/).map((item) => item.trim()).filter(Boolean))];
@@ -330,12 +378,8 @@ export function parseTimetablePayload(
     else unresolvedItems.push(preserveUnresolvedPractice(item, index));
   });
 
-  // `rqazcList` is empty in the observed NingboTech response and its schema has
-  // not been verified. Never guess dates from unknown fields: callers may add
-  // an explicitly verified mapping to `calendarDays`, or provide week one to
-  // the ICS writer.
-  const calendarDays: TimetableCalendarDay[] = [];
-  warnings.push({ code: 'CALENDAR_DATES_UNAVAILABLE' });
+  const calendarDays = parseCalendarDays(payload['rqazcList']);
+  if (calendarDays.length === 0) warnings.push({ code: 'CALENDAR_DATES_UNAVAILABLE' });
   const periods = parsePeriods(payload['xqbzxxszList'], warnings);
   if (periods.length === 0) warnings.push({ code: 'PERIODS_UNAVAILABLE' });
 
