@@ -90,12 +90,17 @@ describe('parseTimetablePayload', () => {
       weekday: 2,
       date: '2026-09-08',
     }]);
-    expect(timetable.unresolvedItems).toEqual([{
+    expect(timetable.untimedCourses).toEqual([{
+      sourceId: null,
+      courseName: '实践课程',
+      teacherNames: [],
+      campus: null,
+      location: null,
+      weeks: [1, 2],
       kind: 'practice',
-      itemIndex: 0,
-      sourceFields: { kcmc: '实践课程', qsjsz: '1-2周' },
     }]);
-    expect(timetable.warnings).toContainEqual(expect.objectContaining({ code: 'UNRESOLVED_PRACTICE' }));
+    expect(timetable.unresolvedItems).toEqual([]);
+    expect(timetable.warnings).not.toContainEqual(expect.objectContaining({ code: 'UNRESOLVED_PRACTICE' }));
     expect(timetable.warnings).not.toContainEqual(expect.objectContaining({ code: 'CALENDAR_DATES_UNAVAILABLE' }));
   });
 

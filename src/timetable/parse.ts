@@ -6,6 +6,7 @@ import {
   type TimetableCalendarDay,
   type TimetableMeeting,
   type TimetablePeriod,
+  type TimetableUntimedCourse,
   type TimetableUnresolvedItem,
   type TimetableUnresolvedSourceField,
   type TimetableWarning,
@@ -240,6 +241,23 @@ function splitTeachers(value: string | null): string[] {
   return [...new Set(value.split(/[、,，;；/]+/).map((item) => item.trim()).filter(Boolean))];
 }
 
+function parseUntimedPractice(value: unknown): TimetableUntimedCourse | null {
+  if (!isRecord(value)) return null;
+  const courseName = scalarString(value, ['kcmc', 'KCMC']);
+  const weekText = scalarString(value, ['qsjsz', 'QSJSZ', 'zcd', 'ZCD']);
+  const weeks = weekText ? parseWeekExpression(weekText) : [];
+  if (!courseName || weeks.length === 0) return null;
+  return {
+    sourceId: scalarString(value, ['jxb_id', 'JXB_ID', 'jxbid', 'JXBID']),
+    courseName,
+    teacherNames: splitTeachers(scalarString(value, ['jsxm', 'JSXM', 'xm', 'XM'])),
+    campus: scalarString(value, ['xqmc', 'XQMC']),
+    location: scalarString(value, ['cdmc', 'CDMC']),
+    weeks,
+    kind: 'practice',
+  };
+}
+
 function parseMeeting(
   value: unknown,
   itemIndex: number,
@@ -365,6 +383,7 @@ export function parseTimetablePayload(
 
   const warnings: TimetableWarning[] = [];
   const meetings: TimetableMeeting[] = [];
+  const untimedCourses: TimetableUntimedCourse[] = [];
   const unresolvedItems: TimetableUnresolvedItem[] = [];
   const regular = Array.isArray(payload['kbList']) ? payload['kbList'] : [];
   const practice = Array.isArray(payload['sjkList']) ? payload['sjkList'] : [];
@@ -373,9 +392,18 @@ export function parseTimetablePayload(
     if (meeting) meetings.push(meeting);
   });
   practice.forEach((item, index) => {
-    const meeting = parseMeeting(item, index, 'practice', warnings);
-    if (meeting) meetings.push(meeting);
-    else unresolvedItems.push(preserveUnresolvedPractice(item, index));
+    const meeting = parseMeeting(item, index, 'practice', []);
+    if (meeting) {
+      meetings.push(meeting);
+      return;
+    }
+    const untimedCourse = parseUntimedPractice(item);
+    if (untimedCourse) {
+      untimedCourses.push(untimedCourse);
+      return;
+    }
+    warnings.push({ code: 'UNRESOLVED_PRACTICE', itemIndex: index });
+    unresolvedItems.push(preserveUnresolvedPractice(item, index));
   });
 
   const calendarDays = parseCalendarDays(payload['rqazcList']);
@@ -386,6 +414,7 @@ export function parseTimetablePayload(
   return {
     term: { ...requestedTerm },
     meetings,
+    untimedCourses,
     unresolvedItems,
     periods,
     calendarDays,

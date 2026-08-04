@@ -47,8 +47,17 @@ export interface TimetablePeriod {
 export interface TimetableCalendarDay {
   week: number;
   weekday: Weekday;
-  /** Local campus date, formatted as YYYY-MM-DD. */
   date: string;
+}
+
+export interface TimetableUntimedCourse {
+  sourceId: string | null;
+  courseName: string;
+  teacherNames: readonly string[];
+  campus: string | null;
+  location: string | null;
+  weeks: readonly number[];
+  kind: 'practice' | 'other';
 }
 
 export type TimetableUnresolvedSourceField =
@@ -89,6 +98,7 @@ export interface TimetableWarning {
 export interface Timetable {
   term: AcademicTermRef;
   meetings: readonly TimetableMeeting[];
+  untimedCourses?: readonly TimetableUntimedCourse[];
   unresolvedItems: readonly TimetableUnresolvedItem[];
   periods: readonly TimetablePeriod[];
   calendarDays: readonly TimetableCalendarDay[];
