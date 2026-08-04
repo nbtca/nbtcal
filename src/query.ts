@@ -71,18 +71,22 @@ function expand(event: ParsedCalendarEvent, start: Date, end: Date, limit: numbe
   return out;
 }
 
-function collectOccurrences(
-  parsed: ParsedCalendar,
-  start: Date,
-  end: Date,
-  limitPerEvent: number,
-): CalendarEvent[] {
+function validateRange(start: Date, end: Date): void {
   if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
     throw new RangeError('Range boundaries must be valid dates');
   }
   if (end.getTime() < start.getTime()) {
     throw new RangeError('Range end must not precede range start');
   }
+}
+
+function collectOccurrences(
+  parsed: ParsedCalendar,
+  start: Date,
+  end: Date,
+  limitPerEvent: number,
+): CalendarEvent[] {
+  validateRange(start, end);
   const events = parsed.vevents.flatMap((e) => expand(e, start, end, limitPerEvent));
   events.sort((a, b) => a.start.getTime() - b.start.getTime());
   return events;
@@ -158,6 +162,7 @@ function weekStartProxy(proxy: Date): Date {
 }
 
 export function heatmap(parsed: ParsedCalendar, options: HeatmapOptions): HeatmapBucket[] {
+  validateRange(options.start, options.end);
   const bucket = options.bucket ?? 'day';
   const timeZone = options.timeZone ?? HEATMAP_DEFAULT_TIME_ZONE;
 

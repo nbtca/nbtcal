@@ -28,6 +28,14 @@ describe('heatmap (day buckets)', () => {
     const buckets = heatmap(parsed, { start: D('2026-06-08T00:00:00Z'), end: D('2026-06-08T00:00:00Z') });
     expect(buckets).toEqual([{ date: '2026-06-08', count: 1 }]);
   });
+
+  it('rejects a reversed range before applying timezone padding', () => {
+    const parsed = parseCalendar(MIXED_ICS);
+    expect(() => heatmap(parsed, {
+      start: D('2026-06-21T00:00:00Z'),
+      end: D('2026-06-20T00:00:00Z'),
+    })).toThrow(RangeError);
+  });
 });
 
 describe('heatmap timezone', () => {

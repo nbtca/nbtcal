@@ -2,21 +2,16 @@ import type { CalendarEvent } from './types.js';
 
 const DAY_MS = 86400000;
 
-/** Institutional calendar entries on the shared feed carry a bracketed
- * source prefix (e.g. "[NBT] 秋季学期开始上课") to distinguish them from
- * club social events — strip it before matching known official titles.
- * Club events (no such prefix) pass through unchanged and simply won't
- * match anything below. */
-function officialTitle(e: CalendarEvent): string | null {
+function institutionalTitle(e: CalendarEvent): string | null {
   if (!e.title) return null;
-  return e.title.replace(/^\[[^\]]*\]\s*/, '').trim();
+  const rawTitle = e.title.trim();
+  if (!rawTitle.startsWith('[') || rawTitle.includes('\r') || rawTitle.includes('\n')) return null;
+  const prefixEnd = rawTitle.indexOf(']');
+  if (prefixEnd < 2) return null;
+  const title = rawTitle.slice(prefixEnd + 1).trim();
+  return title || null;
 }
 
-/** Direct "classes begin" markers — a club posts these explicitly every
- * year, so week one is read straight off the event date. No inference,
- * no "Monday after the break ends" heuristic: that guess doesn't actually
- * hold in practice (e.g. registration day can sit *between* the break's
- * end and the first class). */
 const SEMESTER_START_SEMESTER: Record<string, '1' | '2'> = {
   '秋季学期开始上课': '1',
   '春季学期开始上课': '2',
@@ -36,18 +31,18 @@ function civilDay(date: Date): number {
  * against a curated set — never a substring/"contains 假" check, which
  * would also catch short public holidays like 国庆节放假. */
 export function isAcademicBreakEvent(e: CalendarEvent): boolean {
-  const title = officialTitle(e);
+  const title = institutionalTitle(e);
   if (!title || !BREAK_TITLES.has(title) || !e.isAllDay || !e.end) return false;
   return civilDay(e.end) - civilDay(e.start) >= MIN_BREAK_DAYS;
 }
 
 function isSemesterStartEvent(e: CalendarEvent): boolean {
-  const title = officialTitle(e);
+  const title = institutionalTitle(e);
   return !!title && title in SEMESTER_START_SEMESTER;
 }
 
 function isExamWeekEvent(e: CalendarEvent): boolean {
-  return officialTitle(e) === EXAM_WEEK_TITLE;
+  return institutionalTitle(e) === EXAM_WEEK_TITLE;
 }
 
 export function findBreakEvents(events: CalendarEvent[]): CalendarEvent[] {
@@ -86,9 +81,6 @@ export interface OnBreak {
   breakTitle: string;
 }
 
-/** Derives "which term is `now` in" from a club's own explicit calendar
- * markers on its public feed — no authenticated session involved. Returns
- * null when the feed has none of these markers yet. */
 export function currentAcademicWindow(
   events: CalendarEvent[], now: Date,
 ): AcademicWindow | OnBreak | null {
@@ -99,7 +91,7 @@ export function currentAcademicWindow(
   const activeBreak = breaks.find(
     (e) => e.start.getTime() <= now.getTime() && e.end!.getTime() > now.getTime(),
   );
-  if (activeBreak) return { status: 'onBreak', breakTitle: officialTitle(activeBreak)! };
+  if (activeBreak) return { status: 'onBreak', breakTitle: institutionalTitle(activeBreak)! };
 
   const starts = events
     .filter(isSemesterStartEvent)
@@ -112,7 +104,7 @@ export function currentAcademicWindow(
   );
   if (completedBreak) return null;
 
-  const title = officialTitle(current)!;
+  const title = institutionalTitle(current)!;
   const semester = SEMESTER_START_SEMESTER[title]!;
   const startYear = current.start.getFullYear();
   const academicYear = semester === '1' ? `${startYear}-${startYear + 1}` : `${startYear - 1}-${startYear}`;
@@ -126,7 +118,7 @@ export function currentAcademicWindow(
 
   return {
     status: 'inTerm', academicYear, semester, weekOneMonday, currentWeek,
-    ...(future ? { nextBreakStart: toIsoDate(future.start), nextBreakTitle: officialTitle(future)! } : {}),
+    ...(future ? { nextBreakStart: toIsoDate(future.start), nextBreakTitle: institutionalTitle(future)! } : {}),
   };
 }
 
