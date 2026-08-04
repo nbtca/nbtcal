@@ -1,11 +1,14 @@
-import ICAL, { Event as ICalEvent, Time as ICalTime } from 'ical.js';
-import type { ParsedCalendar } from './parse.js';
+import type {
+  ParsedCalendar,
+  ParsedCalendarEvent,
+  ParsedCalendarTime,
+} from './parse.js';
 import type { CalendarEvent, UpcomingOptions, PastOptions, HeatmapOptions, HeatmapBucket } from './types.js';
 
 function toCalendarEvent(
-  event: ICalEvent,
-  startTime: ICalTime,
-  endTime: ICalTime | null,
+  event: ParsedCalendarEvent,
+  startTime: ParsedCalendarTime,
+  endTime: ParsedCalendarTime | null,
   recurring: boolean,
 ): CalendarEvent {
   return {
@@ -20,12 +23,12 @@ function toCalendarEvent(
   };
 }
 
-function isCancelled(event: ICalEvent): boolean {
+function isCancelled(event: ParsedCalendarEvent): boolean {
   const status = event.component.getFirstPropertyValue('status');
   return typeof status === 'string' && status.toUpperCase() === 'CANCELLED';
 }
 
-function expand(event: ICalEvent, start: Date, end: Date, limit: number): CalendarEvent[] {
+function expand(event: ParsedCalendarEvent, start: Date, end: Date, limit: number): CalendarEvent[] {
   if (limit === 0) return [];
   if (isCancelled(event)) return [];
   if (!event.isRecurring()) {
@@ -54,7 +57,7 @@ function expand(event: ICalEvent, start: Date, end: Date, limit: number): Calend
     );
   }, 0);
   const recurrenceEnd = end.getTime() + backwardShift;
-  let next: ICalTime | null;
+  let next: ParsedCalendarTime | null;
   while (out.length < limit && (next = iterator.next())) {
     const occStart = next.toJSDate();
     if (occStart.getTime() >= recurrenceEnd) break;

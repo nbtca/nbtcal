@@ -1,8 +1,42 @@
-import ICAL, { Event as ICalEvent } from 'ical.js';
+import ICAL from 'ical.js';
 import { FeedParseError } from './types.js';
 
+export interface ParsedCalendarTime {
+  readonly isDate: boolean;
+  toJSDate(): Date;
+}
+
+export interface ParsedCalendarComponent {
+  getFirstPropertyValue(name: string): unknown;
+}
+
+export interface ParsedCalendarIterator {
+  next(): ParsedCalendarTime | null;
+}
+
+export interface ParsedCalendarOccurrence {
+  readonly item: ParsedCalendarEvent;
+  readonly startDate: ParsedCalendarTime;
+  readonly endDate: ParsedCalendarTime;
+}
+
+export interface ParsedCalendarEvent {
+  readonly uid: string;
+  readonly summary: string;
+  readonly location: string;
+  readonly description: string;
+  readonly component: ParsedCalendarComponent;
+  readonly startDate: ParsedCalendarTime;
+  readonly endDate: ParsedCalendarTime;
+  readonly recurrenceId: ParsedCalendarTime;
+  readonly exceptions: Readonly<Record<string, ParsedCalendarEvent>>;
+  isRecurring(): boolean;
+  iterator(): ParsedCalendarIterator;
+  getOccurrenceDetails(occurrence: ParsedCalendarTime): ParsedCalendarOccurrence;
+}
+
 export interface ParsedCalendar {
-  vevents: ICalEvent[];
+  readonly vevents: readonly ParsedCalendarEvent[];
 }
 
 export function parseCalendar(icsText: string): ParsedCalendar {
@@ -35,13 +69,13 @@ export function parseCalendar(icsText: string): ParsedCalendar {
       && status.toUpperCase() === 'CANCELLED';
     if (!cancelledException) throw new FeedParseError('VEVENT is missing DTSTART');
   }
-  const masters = new Map<string, ICalEvent>();
+  const masters = new Map<string, InstanceType<typeof ICAL.Event>>();
   for (const event of allEvents) {
     if (event.isRecurrenceException()) continue;
     const current = masters.get(event.uid);
     if (!current || (!current.isRecurring() && event.isRecurring())) masters.set(event.uid, event);
   }
-  const related = new Set<ICalEvent>();
+  const related = new Set<InstanceType<typeof ICAL.Event>>();
   for (const event of allEvents) {
     if (!event.isRecurrenceException()) continue;
     const master = masters.get(event.uid);
