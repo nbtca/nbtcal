@@ -41,6 +41,14 @@ describe('parseAvailableTerms', () => {
     `);
     expect(terms[0]?.academicYearLabel).toBe('&#x110000;');
   });
+
+  it('extracts option text when an attribute contains a closing bracket', () => {
+    const terms = parseAvailableTerms(`
+      <select id="xnm"><option value="2026" selected><span title=">">2026-2027</span></option></select>
+      <select id="xqm"><option value="3" selected>第一学期</option></select>
+    `);
+    expect(terms[0]?.academicYearLabel).toBe('2026-2027');
+  });
 });
 
 describe('parseWeekExpression', () => {
