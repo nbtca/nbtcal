@@ -33,7 +33,7 @@ Low-level building blocks (`fetchFeed`, `parseCalendar`, `occurrencesInRange`,
 
 ## Personal timetable
 
-The `@nbtca/nbtcal/timetable` subpath understands the NingboTech JWXT timetable
+The `@nbtca/nbtcal/timetable` subpath understands the campus JWXT timetable
 protocol but never receives a student id, password or CookieJar. The host
 application injects a narrowly scoped, already-authenticated transport:
 

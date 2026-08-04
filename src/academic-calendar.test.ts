@@ -39,6 +39,9 @@ describe('isAcademicBreakEvent', () => {
   it('rejects a club event with no institutional prefix', () => {
     expect(isAcademicBreakEvent(CLUB_EVENT)).toBe(false);
   });
+  it('rejects an unprefixed event even when its title matches a known break', () => {
+    expect(isAcademicBreakEvent(ev('寒假', '2027-01-20', '2027-02-26'))).toBe(false);
+  });
   it('counts all-day break length by calendar date across daylight saving', () => {
     const previousTimeZone = process.env['TZ'];
     process.env['TZ'] = 'America/Los_Angeles';
@@ -61,6 +64,11 @@ describe('findBreakEvents', () => {
 describe('currentAcademicWindow', () => {
   it('returns null when the feed has no institutional markers at all', () => {
     expect(currentAcademicWindow([CLUB_EVENT], new Date('2026-10-01'))).toBeNull();
+  });
+
+  it('ignores an unprefixed event even when its title matches a semester marker', () => {
+    const start = ev('秋季学期开始上课', '2026-09-14', '2026-09-15');
+    expect(currentAcademicWindow([start], new Date('2026-10-01'))).toBeNull();
   });
 
   it('reports onBreak while inside the real 暑期 window', () => {
