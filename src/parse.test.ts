@@ -18,4 +18,31 @@ describe('parseCalendar', () => {
   it('throws FeedParseError on malformed input', () => {
     expect(() => parseCalendar(MALFORMED_ICS)).toThrow(FeedParseError);
   });
+
+  it.each(['', '   \r\n\t'])('throws FeedParseError on empty input', (input) => {
+    expect(() => parseCalendar(input)).toThrow(FeedParseError);
+  });
+
+  it('throws FeedParseError when a regular event has no start', () => {
+    const input = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:missing-start
+SUMMARY:Missing start
+END:VEVENT
+END:VCALENDAR`;
+    expect(() => parseCalendar(input)).toThrow(FeedParseError);
+  });
+
+  it('throws FeedParseError when an event has no uid', () => {
+    const input = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+SUMMARY:Missing uid
+DTSTART:20260601T120000Z
+DTEND:20260601T130000Z
+END:VEVENT
+END:VCALENDAR`;
+    expect(() => parseCalendar(input)).toThrow(FeedParseError);
+  });
 });

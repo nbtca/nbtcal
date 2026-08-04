@@ -39,6 +39,16 @@ describe('isAcademicBreakEvent', () => {
   it('rejects a club event with no institutional prefix', () => {
     expect(isAcademicBreakEvent(CLUB_EVENT)).toBe(false);
   });
+  it('counts all-day break length by calendar date across daylight saving', () => {
+    const previousTimeZone = process.env['TZ'];
+    process.env['TZ'] = 'America/Los_Angeles';
+    try {
+      expect(isAcademicBreakEvent(ev('[NBT] 寒假', '2026-03-07', '2026-03-10'))).toBe(true);
+    } finally {
+      if (previousTimeZone === undefined) delete process.env['TZ'];
+      else process.env['TZ'] = previousTimeZone;
+    }
+  });
 });
 
 describe('findBreakEvents', () => {
@@ -94,6 +104,25 @@ describe('currentAcademicWindow', () => {
       weekOneMonday: '2026-09-14', currentWeek: 3,
     });
   });
+
+  it('advances the academic week across a daylight-saving transition', () => {
+    const previousTimeZone = process.env['TZ'];
+    process.env['TZ'] = 'America/Los_Angeles';
+    try {
+      const start = ev('[NBT] 春季学期开始上课', '2026-03-02', '2026-03-03');
+      const window = currentAcademicWindow([start], new Date('2026-03-09T00:00:00'));
+      expect(window).toMatchObject({ weekOneMonday: '2026-03-02', currentWeek: 2 });
+    } finally {
+      if (previousTimeZone === undefined) delete process.env['TZ'];
+      else process.env['TZ'] = previousTimeZone;
+    }
+  });
+
+  it('does not revive the previous term after its following break has ended', () => {
+    const spring = ev('[NBT] 春季学期开始上课', '2026-03-02', '2026-03-03');
+    const window = currentAcademicWindow([spring, SUMMER_2026], new Date('2026-09-15T09:00:00'));
+    expect(window).toBeNull();
+  });
 });
 
 describe('inferWeekOneMonday', () => {
@@ -111,5 +140,10 @@ describe('inferWeekOneMonday', () => {
   it('returns null while on break with no known upcoming semester-start marker yet', () => {
     const now = new Date('2026-07-15T12:00:00');
     expect(inferWeekOneMonday([SUMMER_2026], now)).toBeNull();
+  });
+
+  it('does not infer the previous term after a completed break', () => {
+    const spring = ev('[NBT] 春季学期开始上课', '2026-03-02', '2026-03-03');
+    expect(inferWeekOneMonday([spring, SUMMER_2026], new Date('2026-09-15T09:00:00'))).toBeNull();
   });
 });

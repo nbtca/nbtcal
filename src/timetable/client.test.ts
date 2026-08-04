@@ -73,6 +73,15 @@ describe('createNbtTimetableClient', () => {
     expect(caught).toMatchObject({ code: 'HTTP_ERROR', status: 500 });
   });
 
+  it('reports a known HTTP status even when its body cannot be read', async () => {
+    const transport: AuthenticatedTransport = async () => ({
+      status: 503,
+      async text() { throw new Error('body unavailable'); },
+    });
+    const client = createNbtTimetableClient(transport, { baseUrl: 'https://jwxt.example.edu' });
+    await expect(client.listTerms()).rejects.toMatchObject({ code: 'HTTP_ERROR', status: 503 });
+  });
+
   it('sanitizes abort errors and refuses plaintext base URLs', async () => {
     const marker = 'private-abort-marker';
     const transport: AuthenticatedTransport = async () => {

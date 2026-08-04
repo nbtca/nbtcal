@@ -1,6 +1,6 @@
 {
   "name": "@nbtca/nbtcal",
-  "version": "0.4.0",
+  "version": "0.3.5",
   "description": "Data-only calendar library for public feeds and authenticated personal timetables.",
   "type": "module",
   "main": "dist/index.js",
@@ -33,7 +33,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nbtca/nbtcal.git"
+    "url": "git+https://github.com/nbtca/nbtcal.git"
   },
   "bugs": {
     "url": "https://github.com/nbtca/nbtcal/issues"
@@ -54,6 +54,6 @@
   "devDependencies": {
     "@types/node": "^22.19.17",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.7"
   }
 }

@@ -60,19 +60,25 @@ async function requestText(
     throw asSafeTransportError(error);
   }
 
-  let body: string;
-  try {
-    body = await response.text();
-  } catch (error) {
-    throw asSafeTransportError(error);
-  }
-  if (response.status === 401 || response.status === 403 || looksLikeLoginPage(response, body)) {
+  if (response.status === 401 || response.status === 403) {
     throw new TimetableError('SESSION_EXPIRED', 'The authenticated campus session has expired.', {
       status: response.status,
     });
   }
   if (response.status < 200 || response.status >= 300) {
     throw new TimetableError('HTTP_ERROR', 'The campus timetable request returned an error.', {
+      status: response.status,
+    });
+  }
+
+  let body: string;
+  try {
+    body = await response.text();
+  } catch (error) {
+    throw asSafeTransportError(error);
+  }
+  if (looksLikeLoginPage(response, body)) {
+    throw new TimetableError('SESSION_EXPIRED', 'The authenticated campus session has expired.', {
       status: response.status,
     });
   }

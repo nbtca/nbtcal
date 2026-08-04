@@ -20,10 +20,17 @@ function toCalendarEvent(
   };
 }
 
-function expand(event: ICalEvent, start: Date, end: Date): CalendarEvent[] {
+function isCancelled(event: ICalEvent): boolean {
+  const status = event.component.getFirstPropertyValue('status');
+  return typeof status === 'string' && status.toUpperCase() === 'CANCELLED';
+}
+
+function expand(event: ICalEvent, start: Date, end: Date, limit: number): CalendarEvent[] {
+  if (limit === 0) return [];
+  if (isCancelled(event)) return [];
   if (!event.isRecurring()) {
     const occStart = event.startDate.toJSDate();
-    if (occStart >= start && occStart <= end) {
+    if (occStart >= start && occStart < end) {
       return [toCalendarEvent(event, event.startDate, event.endDate, false)];
     }
     return [];
@@ -35,21 +42,51 @@ function expand(event: ICalEvent, start: Date, end: Date): CalendarEvent[] {
   // filter in JavaScript instead.
   const out: CalendarEvent[] = [];
   const iterator = event.iterator();
+  const exceptions = Object.values(event.exceptions);
+  const cancelledRecurrences = new Set(
+    exceptions.filter(isCancelled).map((exception) => exception.recurrenceId.toJSDate().getTime()),
+  );
+  const backwardShift = exceptions.reduce((largest, exception) => {
+    if (isCancelled(exception)) return largest;
+    return Math.max(
+      largest,
+      exception.recurrenceId.toJSDate().getTime() - exception.startDate.toJSDate().getTime(),
+    );
+  }, 0);
+  const recurrenceEnd = end.getTime() + backwardShift;
   let next: ICalTime | null;
-  while ((next = iterator.next())) {
+  while (out.length < limit && (next = iterator.next())) {
     const occStart = next.toJSDate();
-    if (occStart > end) break;
-    if (occStart < start) continue;
+    if (occStart.getTime() >= recurrenceEnd) break;
+    if (cancelledRecurrences.has(occStart.getTime())) continue;
     const details = event.getOccurrenceDetails(next);
-    out.push(toCalendarEvent(event, details.startDate, details.endDate, true));
+    if (isCancelled(details.item)) continue;
+    const actualStart = details.startDate.toJSDate();
+    if (actualStart < start || actualStart >= end) continue;
+    out.push(toCalendarEvent(details.item, details.startDate, details.endDate, true));
   }
   return out;
 }
 
-export function occurrencesInRange(parsed: ParsedCalendar, start: Date, end: Date): CalendarEvent[] {
-  const events = parsed.vevents.flatMap((e) => expand(e, start, end));
+function collectOccurrences(
+  parsed: ParsedCalendar,
+  start: Date,
+  end: Date,
+  limitPerEvent: number,
+): CalendarEvent[] {
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
+    throw new RangeError('Range boundaries must be valid dates');
+  }
+  if (end.getTime() < start.getTime()) {
+    throw new RangeError('Range end must not precede range start');
+  }
+  const events = parsed.vevents.flatMap((e) => expand(e, start, end, limitPerEvent));
   events.sort((a, b) => a.start.getTime() - b.start.getTime());
   return events;
+}
+
+export function occurrencesInRange(parsed: ParsedCalendar, start: Date, end: Date): CalendarEvent[] {
+  return collectOccurrences(parsed, start, end, Number.POSITIVE_INFINITY);
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -73,9 +110,13 @@ export function past(parsed: ParsedCalendar, options: PastOptions = {}): Calenda
 // may therefore return fewer than `count` occurrences when the following one is
 // further out than the horizon — a deliberate cap for the "what's coming up" use.
 export function next(parsed: ParsedCalendar, count: number): CalendarEvent[] {
+  if (!Number.isSafeInteger(count) || count < 0) {
+    throw new RangeError('count must be a non-negative safe integer');
+  }
+  if (count === 0) return [];
   const now = new Date();
   const horizon = new Date(now.getTime() + NEXT_HORIZON_DAYS * DAY_MS);
-  return occurrencesInRange(parsed, now, horizon).slice(0, Math.max(0, count));
+  return collectOccurrences(parsed, now, horizon, count).slice(0, count);
 }
 
 const HEATMAP_DEFAULT_TIME_ZONE = 'Asia/Shanghai';

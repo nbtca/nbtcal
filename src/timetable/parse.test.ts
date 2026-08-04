@@ -115,6 +115,26 @@ describe('parseTimetablePayload', () => {
     expect(() => parseTimetablePayload('{}', { academicYear: '2026', semester: '3' }))
       .toThrowError(expect.objectContaining({ code: 'INVALID_TIMETABLE' }));
   });
+
+  it('rejects an invalid fetch timestamp', () => {
+    expect(() => parseTimetablePayload({
+      xsxx: { XNM: '2026', XQM: '3' },
+      kbList: [],
+      sjkList: [],
+    }, { academicYear: '2026', semester: '3' }, new Date('invalid'))).toThrow(TypeError);
+  });
+
+  it('does not accept a weekday with trailing characters', () => {
+    const timetable = parseTimetablePayload({
+      xsxx: { XNM: '2026', XQM: '3' },
+      kbList: [{ kcmc: '课程', xqj: '1x', zcd: '1周', jcs: '1-2' }],
+      sjkList: [],
+    }, { academicYear: '2026', semester: '3' });
+    expect(timetable.meetings).toEqual([]);
+    expect(timetable.warnings).toContainEqual({
+      code: 'INVALID_MEETING', itemIndex: 0, field: 'weekday',
+    });
+  });
 });
 
 describe('parsePeriodPayload', () => {

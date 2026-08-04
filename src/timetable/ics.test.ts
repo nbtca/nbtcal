@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseCalendar } from '../parse.js';
 import { timetableToIcs } from './ics.js';
-import { type Timetable } from './types.js';
+import { type Timetable, type TimetableToIcsOptions } from './types.js';
 
 function fixture(): Timetable {
   return {
@@ -137,5 +137,15 @@ describe('timetableToIcs', () => {
       weekOneMonday: '2026-09-07',
       periodTimes: { 1: { start: '09:00', end: '08:00' } },
     })).toThrowError(expect.objectContaining({ code: 'MISSING_PERIOD_TIME' }));
+  });
+
+  it('rejects malformed period override keys', () => {
+    const periodTimes = {
+      '1x': { start: '09:00', end: '09:45' },
+    } as unknown as NonNullable<TimetableToIcsOptions['periodTimes']>;
+    expect(() => timetableToIcs(fixture(), {
+      weekOneMonday: '2026-09-07',
+      periodTimes,
+    })).toThrow(TypeError);
   });
 });
