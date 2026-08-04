@@ -1,6 +1,7 @@
 import { FeedFetchError } from './types.js';
 
 export const DEFAULT_FEED_URL = 'https://ical.nbtca.space';
+const MAX_TIMEOUT_MS = 2_147_483_647;
 
 export interface FetchFeedOptions {
   timeoutMs?: number;
@@ -12,12 +13,24 @@ export async function fetchFeed(
   options: FetchFeedOptions = {},
 ): Promise<string> {
   const timeoutMs = options.timeoutMs ?? 5000;
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > MAX_TIMEOUT_MS) {
+    throw new TypeError('timeoutMs must be a finite positive timer duration.');
+  }
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let timedOut = false;
+  let callerAborted = options.signal?.aborted ?? false;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  const abortFromCaller = (): void => {
+    callerAborted = true;
+    controller.abort();
+  };
 
   if (options.signal) {
     if (options.signal.aborted) controller.abort();
-    else options.signal.addEventListener('abort', () => controller.abort(), { once: true });
+    else options.signal.addEventListener('abort', abortFromCaller, { once: true });
   }
 
   try {
@@ -28,9 +41,13 @@ export async function fetchFeed(
     return await response.text();
   } catch (err) {
     if (err instanceof FeedFetchError) throw err;
-    const reason = err instanceof Error && err.name === 'AbortError' ? 'request timed out' : String(err);
+    const aborted = controller.signal.aborted || (err instanceof Error && err.name === 'AbortError');
+    const reason = aborted
+      ? timedOut && !callerAborted ? 'request timed out' : 'request aborted'
+      : String(err);
     throw new FeedFetchError(`Failed to fetch feed: ${reason}`, { cause: err });
   } finally {
     clearTimeout(timeout);
+    options.signal?.removeEventListener('abort', abortFromCaller);
   }
 }

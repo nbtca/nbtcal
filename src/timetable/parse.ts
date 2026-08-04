@@ -183,9 +183,8 @@ function parsePeriodRange(value: string): { start: number; end: number } | null 
 }
 
 function parseWeekday(value: string | null): Weekday | null {
-  if (!value) return null;
-  const weekday = Number.parseInt(value, 10);
-  return weekday >= 1 && weekday <= 7 ? weekday as Weekday : null;
+  if (!value || !/^[1-7]$/.test(value)) return null;
+  return Number(value) as Weekday;
 }
 
 function splitTeachers(value: string | null): string[] {
@@ -299,6 +298,9 @@ export function parseTimetablePayload(
   requestedTerm: AcademicTermRef,
   fetchedAt: Date = new Date(),
 ): Timetable {
+  if (!(fetchedAt instanceof Date) || !Number.isFinite(fetchedAt.getTime())) {
+    throw new TypeError('fetchedAt must be a valid Date.');
+  }
   const payload = parseJsonPayload(input);
   if (!isRecord(payload) || (!Array.isArray(payload['kbList']) && !Array.isArray(payload['sjkList']))) {
     throw new TimetableError('INVALID_TIMETABLE', 'The timetable response did not match the expected shape.');

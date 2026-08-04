@@ -7,14 +7,22 @@ declare module 'ical.js' {
   }
 
   export class Event {
-    constructor(component: Component);
+    constructor(component: Component, options?: {
+      strictExceptions?: boolean;
+      exceptions?: Array<Component | Event>;
+    });
+    component: Component;
     uid: string;
     summary: string;
     location: string;
     description: string;
+    recurrenceId: Time;
+    exceptions: Record<string, Event>;
     startDate: Time;
     endDate: Time;
     isRecurring(): boolean;
+    isRecurrenceException(): boolean;
+    relateException(event: Component | Event): void;
     iterator(start?: Time): RecurExpansion;
     getOccurrenceDetails(time: Time): { startDate: Time; endDate: Time; item: Event };
   }
@@ -26,6 +34,7 @@ declare module 'ical.js' {
   export class Component {
     constructor(jcal: unknown);
     getAllSubcomponents(name?: string): Component[];
+    getFirstPropertyValue(name: string): unknown;
   }
 
   export function parse(input: string): unknown;

@@ -45,4 +45,22 @@ describe('next', () => {
     const events = next(parsed, 100);
     expect(events).toHaveLength(8); // RRULE COUNT=8
   });
+
+  it('stops expanding each recurrence after enough occurrences are collected', () => {
+    const parsed = parseCalendar(WEEKLY_ICS);
+    const iterator = parsed.vevents[0]!.iterator();
+    const nextOccurrence = iterator.next.bind(iterator);
+    const nextSpy = vi.spyOn(iterator, 'next').mockImplementation(nextOccurrence);
+    vi.spyOn(parsed.vevents[0]!, 'iterator').mockReturnValue(iterator);
+    expect(next(parsed, 2)).toHaveLength(2);
+    expect(nextSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])(
+    'rejects an invalid occurrence count: %s',
+    (count) => {
+      const parsed = parseCalendar(WEEKLY_ICS);
+      expect(() => next(parsed, count)).toThrow(RangeError);
+    },
+  );
 });

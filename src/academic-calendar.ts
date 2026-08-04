@@ -28,13 +28,17 @@ const BREAK_TITLES = new Set(['寒假', '暑假', '暑期']);
 const EXAM_WEEK_TITLE = '期末考试周';
 const MIN_BREAK_DAYS = 3;
 
+function civilDay(date: Date): number {
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / DAY_MS;
+}
+
 /** An all-day, multi-day break period (寒假/暑假/暑期). Exact title match
  * against a curated set — never a substring/"contains 假" check, which
  * would also catch short public holidays like 国庆节放假. */
 export function isAcademicBreakEvent(e: CalendarEvent): boolean {
   const title = officialTitle(e);
   if (!title || !BREAK_TITLES.has(title) || !e.isAllDay || !e.end) return false;
-  return (e.end.getTime() - e.start.getTime()) / DAY_MS >= MIN_BREAK_DAYS;
+  return civilDay(e.end) - civilDay(e.start) >= MIN_BREAK_DAYS;
 }
 
 function isSemesterStartEvent(e: CalendarEvent): boolean {
@@ -56,8 +60,9 @@ function toIsoDate(d: Date): string {
 
 /** Days since `weekOneMonday` (an ISO "YYYY-MM-DD" date), 1-based. */
 function currentWeekNumber(weekOneMonday: string, now: Date): number {
-  const base = new Date(`${weekOneMonday}T00:00:00`);
-  const days = Math.floor((now.getTime() - base.getTime()) / DAY_MS);
+  const [year, month, day] = weekOneMonday.split('-').map(Number);
+  const baseDay = Date.UTC(year!, month! - 1, day!) / DAY_MS;
+  const days = civilDay(now) - baseDay;
   return Math.floor(days / 7) + 1;
 }
 
@@ -90,7 +95,8 @@ export function currentAcademicWindow(
   // A genuine between-term break takes priority even if a semester-start
   // event technically already exists in the feed for the *next* term
   // (registration-day events can predate the break's own end).
-  const activeBreak = findBreakEvents(events).find(
+  const breaks = findBreakEvents(events);
+  const activeBreak = breaks.find(
     (e) => e.start.getTime() <= now.getTime() && e.end!.getTime() > now.getTime(),
   );
   if (activeBreak) return { status: 'onBreak', breakTitle: officialTitle(activeBreak)! };
@@ -101,6 +107,10 @@ export function currentAcademicWindow(
   const past = starts.filter((e) => e.start.getTime() <= now.getTime());
   if (past.length === 0) return null;
   const current = past[past.length - 1]!;
+  const completedBreak = breaks.find(
+    (e) => e.start.getTime() > current.start.getTime() && e.end!.getTime() <= now.getTime(),
+  );
+  if (completedBreak) return null;
 
   const title = officialTitle(current)!;
   const semester = SEMESTER_START_SEMESTER[title]!;

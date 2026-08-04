@@ -160,11 +160,12 @@ function periodMap(
   }
   if (overrides) {
     for (const [key, value] of Object.entries(overrides)) {
-      const period = Number.parseInt(key, 10);
-      if (Number.isInteger(period) && period > 0) {
-        assertPeriodTime(value);
-        periods.set(period, value);
+      const period = Number(key);
+      if (!Number.isSafeInteger(period) || period <= 0 || String(period) !== key) {
+        throw new TypeError('periodTimes keys must be positive integers.');
       }
+      assertPeriodTime(value);
+      periods.set(period, value);
     }
   }
   return periods;

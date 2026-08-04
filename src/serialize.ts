@@ -1,10 +1,13 @@
 import type { CalendarEvent } from './types.js';
 
 const DEFAULT_PRODID = '-//nbtca//nbtcal//EN';
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 function pad(n: number): string {
   return String(n).padStart(2, '0');
+}
+
+function assertValidDate(date: Date, name: string): void {
+  if (!Number.isFinite(date.getTime())) throw new RangeError(`${name} must be a valid Date`);
 }
 
 /** Timed datetime in UTC: YYYYMMDDTHHMMSSZ */
@@ -15,9 +18,12 @@ function formatUTC(date: Date): string {
   );
 }
 
-/** All-day date in UTC components: YYYYMMDD */
 function formatDate(date: Date): string {
-  return `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}`;
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}`;
+}
+
+function nextCivilDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
 }
 
 /** RFC 5545 §3.3.11 text escaping. */
@@ -60,6 +66,9 @@ function foldLine(line: string): string {
 export function eventToICS(event: CalendarEvent, options: EventToICSOptions = {}): string {
   const prodId = options.prodId ?? DEFAULT_PRODID;
   const now = options.now ?? new Date();
+  assertValidDate(event.start, 'event.start');
+  if (event.end) assertValidDate(event.end, 'event.end');
+  assertValidDate(now, 'options.now');
 
   const lines: string[] = [
     'BEGIN:VCALENDAR',
@@ -74,7 +83,7 @@ export function eventToICS(event: CalendarEvent, options: EventToICSOptions = {}
 
   if (event.isAllDay) {
     lines.push(`DTSTART;VALUE=DATE:${formatDate(event.start)}`);
-    const end = event.end ?? new Date(event.start.getTime() + DAY_MS);
+    const end = event.end ?? nextCivilDay(event.start);
     lines.push(`DTEND;VALUE=DATE:${formatDate(end)}`);
   } else {
     lines.push(`DTSTART:${formatUTC(event.start)}`);
