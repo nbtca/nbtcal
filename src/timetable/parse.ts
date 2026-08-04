@@ -241,16 +241,43 @@ function splitTeachers(value: string | null): string[] {
   return [...new Set(value.split(/[、,，;；/]+/).map((item) => item.trim()).filter(Boolean))];
 }
 
+function parsePracticeComposite(value: string | null): {
+  courseName: string;
+  teacherNames: string[];
+  weekText: string;
+} | null {
+  if (!value) return null;
+  const markerIndex = value.search(/[★●○◇]/);
+  if (markerIndex < 1) return null;
+  const courseName = value.slice(0, markerIndex).trim();
+  const remainder = value.slice(markerIndex + 1);
+  const slashIndex = remainder.indexOf('/');
+  if (!courseName || slashIndex < 0) return null;
+  const teacherText = remainder
+    .slice(0, slashIndex)
+    .replace(/[（(]\s*共\s*\d{1,2}\s*周\s*[)）]\s*$/, '')
+    .trim();
+  const weekText = remainder.slice(slashIndex + 1).split('/', 1)[0]?.trim() ?? '';
+  if (!weekText) return null;
+  return { courseName, teacherNames: splitTeachers(teacherText), weekText };
+}
+
 function parseUntimedPractice(value: unknown): TimetableUntimedCourse | null {
   if (!isRecord(value)) return null;
-  const courseName = scalarString(value, ['kcmc', 'KCMC']);
-  const weekText = scalarString(value, ['qsjsz', 'QSJSZ', 'zcd', 'ZCD']);
+  const composite = parsePracticeComposite(scalarString(value, [
+    'qtkcgs', 'QTKCGS', 'sjkcgs', 'SJKCGS',
+  ]));
+  const courseName = scalarString(value, ['kcmc', 'KCMC']) ?? composite?.courseName ?? null;
+  const weekText = scalarString(value, ['qsjsz', 'QSJSZ', 'zcd', 'ZCD'])
+    ?? composite?.weekText
+    ?? null;
   const weeks = weekText ? parseWeekExpression(weekText) : [];
   if (!courseName || weeks.length === 0) return null;
+  const teacherText = scalarString(value, ['jsxm', 'JSXM', 'xm', 'XM']);
   return {
     sourceId: scalarString(value, ['jxb_id', 'JXB_ID', 'jxbid', 'JXBID']),
     courseName,
-    teacherNames: splitTeachers(scalarString(value, ['jsxm', 'JSXM', 'xm', 'XM'])),
+    teacherNames: teacherText ? splitTeachers(teacherText) : composite?.teacherNames ?? [],
     campus: scalarString(value, ['xqmc', 'XQMC']),
     location: scalarString(value, ['cdmc', 'CDMC']),
     weeks,
