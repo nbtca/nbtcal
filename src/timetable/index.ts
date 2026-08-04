@@ -21,6 +21,7 @@ export type {
   TimetablePeriod,
   TimetableRequestOptions,
   TimetableToIcsOptions,
+  TimetableUntimedCourse,
   TimetableUnresolvedItem,
   TimetableUnresolvedSourceField,
   TimetableWarning,
