@@ -19,6 +19,8 @@
     "clean": "node scripts/clean.mjs",
     "prebuild": "npm run clean",
     "build": "tsc",
+    "precheck:package": "npm run build",
+    "check:package": "node scripts/check-package.mjs",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",
