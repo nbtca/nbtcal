@@ -7,7 +7,7 @@ describe('parseCalendar', () => {
   it('returns one vevent for a single-event feed', () => {
     const parsed = parseCalendar(TIMED_ICS);
     expect(parsed.vevents).toHaveLength(1);
-    expect(parsed.vevents[0].uid).toBe('timed-1');
+    expect(parsed.vevents[0]!.uid).toBe('timed-1');
   });
 
   it('returns all vevents for a multi-event feed', () => {

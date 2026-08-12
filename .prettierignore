@@ -1,0 +1,7 @@
+.claude/
+.playwright-mcp/
+.superpowers/
+coverage/
+dist/
+node_modules/
+package-lock.json

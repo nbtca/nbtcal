@@ -12,13 +12,13 @@ function institutionalTitle(e: CalendarEvent): string | null {
   return title || null;
 }
 
-const SEMESTER_START_SEMESTER: Record<string, '1' | '2'> = {
-  '秋季学期开始上课': '1',
-  '春季学期开始上课': '2',
-};
+type Semester = '1' | '2';
 
-// Real-world naming is inconsistent between years ("暑假" vs "暑期") — match
-// every alias actually in use rather than a single assumed spelling.
+const SEMESTER_BY_START_TITLE = new Map<string, Semester>([
+  ['秋季学期开始上课', '1'],
+  ['春季学期开始上课', '2'],
+]);
+
 const BREAK_TITLES = new Set(['寒假', '暑假', '暑期']);
 const EXAM_WEEK_TITLE = '期末考试周';
 const MIN_BREAK_DAYS = 3;
@@ -27,25 +27,26 @@ function civilDay(date: Date): number {
   return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / DAY_MS;
 }
 
-/** An all-day, multi-day break period (寒假/暑假/暑期). Exact title match
- * against a curated set — never a substring/"contains 假" check, which
- * would also catch short public holidays like 国庆节放假. */
 export function isAcademicBreakEvent(e: CalendarEvent): boolean {
   const title = institutionalTitle(e);
   if (!title || !BREAK_TITLES.has(title) || !e.isAllDay || !e.end) return false;
   return civilDay(e.end) - civilDay(e.start) >= MIN_BREAK_DAYS;
 }
 
-function isSemesterStartEvent(e: CalendarEvent): boolean {
+function semesterForEvent(e: CalendarEvent): Semester | null {
   const title = institutionalTitle(e);
-  return !!title && title in SEMESTER_START_SEMESTER;
+  return title ? (SEMESTER_BY_START_TITLE.get(title) ?? null) : null;
+}
+
+function isSemesterStartEvent(e: CalendarEvent): boolean {
+  return semesterForEvent(e) !== null;
 }
 
 function isExamWeekEvent(e: CalendarEvent): boolean {
   return institutionalTitle(e) === EXAM_WEEK_TITLE;
 }
 
-export function findBreakEvents(events: CalendarEvent[]): CalendarEvent[] {
+export function findBreakEvents(events: readonly CalendarEvent[]): CalendarEvent[] {
   return events.filter(isAcademicBreakEvent).sort((a, b) => a.start.getTime() - b.start.getTime());
 }
 
@@ -53,11 +54,8 @@ function toIsoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/** Days since `weekOneMonday` (an ISO "YYYY-MM-DD" date), 1-based. */
-function currentWeekNumber(weekOneMonday: string, now: Date): number {
-  const [year, month, day] = weekOneMonday.split('-').map(Number);
-  const baseDay = Date.UTC(year!, month! - 1, day!) / DAY_MS;
-  const days = civilDay(now) - baseDay;
+function currentWeekNumber(weekOne: Date, now: Date): number {
+  const days = civilDay(now) - civilDay(weekOne);
   return Math.floor(days / 7) + 1;
 }
 
@@ -67,11 +65,7 @@ export interface AcademicWindow {
   semester: '1' | '2';
   weekOneMonday: string;
   currentWeek: number;
-  /** The next known calendar milestone worth counting down to — an exam
-   * week, a break, or the following semester's start, whichever comes
-   * first in the feed. Not necessarily a "break" despite the name; only
-   * present when the feed actually has a matching future event, never
-   * guessed. */
+  /** The next known exam week, break, or semester start. */
   nextBreakStart?: string;
   nextBreakTitle?: string;
 }
@@ -82,58 +76,66 @@ export interface OnBreak {
 }
 
 export function currentAcademicWindow(
-  events: CalendarEvent[], now: Date,
+  events: readonly CalendarEvent[],
+  now: Date,
 ): AcademicWindow | OnBreak | null {
-  // A genuine between-term break takes priority even if a semester-start
-  // event technically already exists in the feed for the *next* term
-  // (registration-day events can predate the break's own end).
   const breaks = findBreakEvents(events);
-  const activeBreak = breaks.find(
-    (e) => e.start.getTime() <= now.getTime() && e.end!.getTime() > now.getTime(),
-  );
-  if (activeBreak) return { status: 'onBreak', breakTitle: institutionalTitle(activeBreak)! };
+  const activeBreak = breaks.find((event) => {
+    const end = event.end;
+    return end !== null && event.start.getTime() <= now.getTime() && end.getTime() > now.getTime();
+  });
+  const activeBreakTitle = activeBreak ? institutionalTitle(activeBreak) : null;
+  if (activeBreakTitle) return { status: 'onBreak', breakTitle: activeBreakTitle };
 
   const starts = events
     .filter(isSemesterStartEvent)
     .sort((a, b) => a.start.getTime() - b.start.getTime());
   const past = starts.filter((e) => e.start.getTime() <= now.getTime());
-  if (past.length === 0) return null;
-  const current = past[past.length - 1]!;
-  const completedBreak = breaks.find(
-    (e) => e.start.getTime() > current.start.getTime() && e.end!.getTime() <= now.getTime(),
-  );
+  const current = past.at(-1);
+  if (!current) return null;
+  const completedBreak = breaks.find((event) => {
+    const end = event.end;
+    return (
+      end !== null &&
+      event.start.getTime() > current.start.getTime() &&
+      end.getTime() <= now.getTime()
+    );
+  });
   if (completedBreak) return null;
 
-  const title = institutionalTitle(current)!;
-  const semester = SEMESTER_START_SEMESTER[title]!;
+  const semester = semesterForEvent(current);
+  if (!semester) return null;
   const startYear = current.start.getFullYear();
-  const academicYear = semester === '1' ? `${startYear}-${startYear + 1}` : `${startYear - 1}-${startYear}`;
+  const academicYear =
+    semester === '1' ? `${startYear}-${startYear + 1}` : `${startYear - 1}-${startYear}`;
   const weekOneMonday = toIsoDate(current.start);
-  const currentWeek = currentWeekNumber(weekOneMonday, now);
+  const currentWeek = currentWeekNumber(current.start, now);
 
   const future = [...events]
-    .filter((e) => e.start.getTime() > now.getTime()
-      && (isExamWeekEvent(e) || isAcademicBreakEvent(e) || isSemesterStartEvent(e)))
+    .filter(
+      (e) =>
+        e.start.getTime() > now.getTime() &&
+        (isExamWeekEvent(e) || isAcademicBreakEvent(e) || isSemesterStartEvent(e)),
+    )
     .sort((a, b) => a.start.getTime() - b.start.getTime())[0];
+  const futureTitle = future ? institutionalTitle(future) : null;
 
   return {
-    status: 'inTerm', academicYear, semester, weekOneMonday, currentWeek,
-    ...(future ? { nextBreakStart: toIsoDate(future.start), nextBreakTitle: institutionalTitle(future)! } : {}),
+    status: 'inTerm',
+    academicYear,
+    semester,
+    weekOneMonday,
+    currentWeek,
+    ...(future && futureTitle
+      ? { nextBreakStart: toIsoDate(future.start), nextBreakTitle: futureTitle }
+      : {}),
   };
 }
 
-/** Best-effort auto-fill for a "week one Monday" prompt. Returns null (not
- * a thrown error) whenever there's nothing to infer yet — the caller falls
- * back to a manual prompt. */
-export function inferWeekOneMonday(events: CalendarEvent[], now: Date): string | null {
+export function inferWeekOneMonday(events: readonly CalendarEvent[], now: Date): string | null {
   const window = currentAcademicWindow(events, now);
-  if (window && window.status === 'inTerm') return window.weekOneMonday;
+  if (window?.status === 'inTerm') return window.weekOneMonday;
 
-  // While on break, the term a consumer resolves as "current" (and the one
-  // a student checking during break almost certainly wants) is the
-  // *upcoming* one, not the one that just ended — use the next explicit
-  // semester-start marker directly when the feed already has it, instead
-  // of giving up just because `now` itself isn't inside any term yet.
   const upcoming = events
     .filter((e) => isSemesterStartEvent(e) && e.start.getTime() > now.getTime())
     .sort((a, b) => a.start.getTime() - b.start.getTime())[0];

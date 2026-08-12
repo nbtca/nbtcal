@@ -30,7 +30,7 @@ jobs:
       - run: npm ci
       - run: npm test
 
-  package:
+  quality:
     name: Package
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -41,5 +41,4 @@ jobs:
           node-version: '24'
           cache: 'npm'
       - run: npm ci
-      - run: npm run check:package
-      - run: npm audit --audit-level=moderate
+      - run: npm run check

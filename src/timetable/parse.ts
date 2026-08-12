@@ -44,13 +44,13 @@ function decodeHtml(value: string): string {
     quot: '"',
   };
   return value.replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (entity, body: string) => {
-    if (body[0] === '#') {
+    if (body.startsWith('#')) {
       const hex = body[1]?.toLowerCase() === 'x';
       const codePoint = Number.parseInt(body.slice(hex ? 2 : 1), hex ? 16 : 10);
-      return Number.isInteger(codePoint)
-        && codePoint >= 0
-        && codePoint <= 0x10ffff
-        && (codePoint < 0xd800 || codePoint > 0xdfff)
+      return Number.isInteger(codePoint) &&
+        codePoint >= 0 &&
+        codePoint <= 0x10ffff &&
+        (codePoint < 0xd800 || codePoint > 0xdfff)
         ? String.fromCodePoint(codePoint)
         : entity;
     }
@@ -164,10 +164,10 @@ export function parseWeekExpression(expression: string): number[] {
   return [...weeks].sort((a, b) => a - b);
 }
 
-const UNRESOLVED_FIELD_KEYS: ReadonlyArray<[
+const UNRESOLVED_FIELD_KEYS: readonly (readonly [
   TimetableUnresolvedSourceField,
   readonly string[],
-]> = [
+])[] = [
   ['kcmc', ['kcmc', 'KCMC']],
   ['xqj', ['xqj', 'XQJ']],
   ['zcd', ['zcd', 'ZCD']],
@@ -192,9 +192,9 @@ function preserveUnresolvedPractice(value: unknown, itemIndex: number): Timetabl
 
 function parsePeriodRange(value: string): { start: number; end: number } | null {
   const numbers = [...value.matchAll(/\d{1,2}/g)].map((match) => Number.parseInt(match[0], 10));
-  if (numbers.length === 0) return null;
-  const start = numbers[0]!;
-  const end = numbers.length === 1 ? start : numbers[numbers.length - 1]!;
+  const start = numbers[0];
+  if (start === undefined) return null;
+  const end = numbers.at(-1) ?? start;
   if (start < 1 || end < start || end > 99) return null;
   return { start, end };
 }
@@ -217,9 +217,9 @@ function parseCalendarDate(value: string | null): Date | null {
   const month = Number.parseInt(match[2], 10);
   const day = Number.parseInt(match[3], 10);
   const date = new Date(Date.UTC(year, month - 1, day));
-  return date.getUTCFullYear() === year
-    && date.getUTCMonth() === month - 1
-    && date.getUTCDate() === day
+  return date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
     ? date
     : null;
 }
@@ -235,7 +235,7 @@ function parseCalendarDays(value: unknown): TimetableCalendarDay[] {
     const dateText = scalarString(row, ['rq', 'RQ']);
     const date = parseCalendarDate(dateText);
     if (!week || !weekday || !date || !dateText) continue;
-    const actualWeekday = ((date.getUTCDay() + 6) % 7 + 1) as Weekday;
+    const actualWeekday = (((date.getUTCDay() + 6) % 7) + 1) as Weekday;
     if (actualWeekday !== weekday) continue;
     const key = `${week}:${weekday}`;
     if (conflicts.has(key)) continue;
@@ -247,14 +247,21 @@ function parseCalendarDays(value: unknown): TimetableCalendarDay[] {
     }
     days.set(key, { week, weekday, date: dateText });
   }
-  return [...days.values()].sort((left, right) => (
-    left.week - right.week || left.weekday - right.weekday
-  ));
+  return [...days.values()].sort(
+    (left, right) => left.week - right.week || left.weekday - right.weekday,
+  );
 }
 
 function splitTeachers(value: string | null): string[] {
   if (!value) return [];
-  return [...new Set(value.split(/[、,，;；/]+/).map((item) => item.trim()).filter(Boolean))];
+  return [
+    ...new Set(
+      value
+        .split(/[、,，;；/]+/)
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  ];
 }
 
 function parsePracticeComposite(value: string | null): {
@@ -273,27 +280,30 @@ function parsePracticeComposite(value: string | null): {
     .slice(0, slashIndex)
     .replace(/[（(]\s*共\s*\d{1,2}\s*周\s*[)）]\s*$/, '')
     .trim();
-  const weekText = remainder.slice(slashIndex + 1).split('/', 1)[0]?.trim() ?? '';
+  const weekText =
+    remainder
+      .slice(slashIndex + 1)
+      .split('/', 1)[0]
+      ?.trim() ?? '';
   if (!weekText) return null;
   return { courseName, teacherNames: splitTeachers(teacherText), weekText };
 }
 
 function parseUntimedPractice(value: unknown): TimetableUntimedCourse | null {
   if (!isRecord(value)) return null;
-  const composite = parsePracticeComposite(scalarString(value, [
-    'qtkcgs', 'QTKCGS', 'sjkcgs', 'SJKCGS',
-  ]));
+  const composite = parsePracticeComposite(
+    scalarString(value, ['qtkcgs', 'QTKCGS', 'sjkcgs', 'SJKCGS']),
+  );
   const courseName = scalarString(value, ['kcmc', 'KCMC']) ?? composite?.courseName ?? null;
-  const weekText = scalarString(value, ['qsjsz', 'QSJSZ', 'zcd', 'ZCD'])
-    ?? composite?.weekText
-    ?? null;
+  const weekText =
+    scalarString(value, ['qsjsz', 'QSJSZ', 'zcd', 'ZCD']) ?? composite?.weekText ?? null;
   const weeks = weekText ? parseWeekExpression(weekText) : [];
   if (!courseName || weeks.length === 0) return null;
   const teacherText = scalarString(value, ['jsxm', 'JSXM', 'xm', 'XM']);
   return {
     sourceId: scalarString(value, ['jxb_id', 'JXB_ID', 'jxbid', 'JXBID']),
     courseName,
-    teacherNames: teacherText ? splitTeachers(teacherText) : composite?.teacherNames ?? [],
+    teacherNames: teacherText ? splitTeachers(teacherText) : (composite?.teacherNames ?? []),
     campus: scalarString(value, ['xqmc', 'XQMC']),
     location: scalarString(value, ['cdmc', 'CDMC']),
     weeks,
@@ -308,7 +318,10 @@ function parseMeeting(
   warnings: TimetableWarning[],
 ): TimetableMeeting | null {
   if (!isRecord(value)) {
-    warnings.push({ code: kind === 'practice' ? 'UNRESOLVED_PRACTICE' : 'INVALID_MEETING', itemIndex });
+    warnings.push({
+      code: kind === 'practice' ? 'UNRESOLVED_PRACTICE' : 'INVALID_MEETING',
+      itemIndex,
+    });
     return null;
   }
 
@@ -323,7 +336,13 @@ function parseMeeting(
     warnings.push({
       code: kind === 'practice' ? 'UNRESOLVED_PRACTICE' : 'INVALID_MEETING',
       itemIndex,
-      field: !courseName ? 'courseName' : !weekday ? 'weekday' : weeks.length === 0 ? 'weeks' : 'periods',
+      field: !courseName
+        ? 'courseName'
+        : !weekday
+          ? 'weekday'
+          : weeks.length === 0
+            ? 'weeks'
+            : 'periods',
     });
     return null;
   }
@@ -354,10 +373,10 @@ function normalizeTime(value: string | null): string | null {
 function parsePeriods(value: unknown, warnings?: TimetableWarning[]): TimetablePeriod[] {
   const rows = Array.isArray(value)
     ? value
-    : isRecord(value) && Array.isArray(value['data'])
-      ? value['data']
-      : isRecord(value) && Array.isArray(value['jcList'])
-        ? value['jcList']
+    : isRecord(value) && Array.isArray(value.data)
+      ? value.data
+      : isRecord(value) && Array.isArray(value.jcList)
+        ? value.jcList
         : [];
   const periods = new Map<number, TimetablePeriod>();
   rows.forEach((row, itemIndex) => {
@@ -397,7 +416,10 @@ export function parsePeriodPayload(input: unknown): TimetablePeriod[] {
   const payload = parseJsonPayload(input);
   const periods = parsePeriods(payload);
   if (periods.length === 0) {
-    throw new TimetableError('INVALID_TIMETABLE', 'The period response did not contain usable times.');
+    throw new TimetableError(
+      'INVALID_TIMETABLE',
+      'The period response did not contain usable times.',
+    );
   }
   return periods;
 }
@@ -411,25 +433,39 @@ export function parseTimetablePayload(
     throw new TypeError('fetchedAt must be a valid Date.');
   }
   const payload = parseJsonPayload(input);
-  if (!isRecord(payload) || (!Array.isArray(payload['kbList']) && !Array.isArray(payload['sjkList']))) {
-    throw new TimetableError('INVALID_TIMETABLE', 'The timetable response did not match the expected shape.');
+  if (!isRecord(payload) || (!Array.isArray(payload.kbList) && !Array.isArray(payload.sjkList))) {
+    throw new TimetableError(
+      'INVALID_TIMETABLE',
+      'The timetable response did not match the expected shape.',
+    );
   }
 
-  if (!isRecord(payload['xsxx'])) {
-    throw new TimetableError('TERM_MISMATCH', 'The campus system did not confirm the requested academic term.');
+  if (!isRecord(payload.xsxx)) {
+    throw new TimetableError(
+      'TERM_MISMATCH',
+      'The campus system did not confirm the requested academic term.',
+    );
   }
-  const year = scalarString(payload['xsxx'], ['XNM', 'xnm']);
-  const semester = scalarString(payload['xsxx'], ['XQM', 'xqm']);
-  if (!year || !semester || year !== requestedTerm.academicYear || semester !== requestedTerm.semester) {
-    throw new TimetableError('TERM_MISMATCH', 'The campus system returned a different academic term.');
+  const year = scalarString(payload.xsxx, ['XNM', 'xnm']);
+  const semester = scalarString(payload.xsxx, ['XQM', 'xqm']);
+  if (
+    !year ||
+    !semester ||
+    year !== requestedTerm.academicYear ||
+    semester !== requestedTerm.semester
+  ) {
+    throw new TimetableError(
+      'TERM_MISMATCH',
+      'The campus system returned a different academic term.',
+    );
   }
 
   const warnings: TimetableWarning[] = [];
   const meetings: TimetableMeeting[] = [];
   const untimedCourses: TimetableUntimedCourse[] = [];
   const unresolvedItems: TimetableUnresolvedItem[] = [];
-  const regular = Array.isArray(payload['kbList']) ? payload['kbList'] : [];
-  const practice = Array.isArray(payload['sjkList']) ? payload['sjkList'] : [];
+  const regular = Array.isArray(payload.kbList) ? payload.kbList : [];
+  const practice = Array.isArray(payload.sjkList) ? payload.sjkList : [];
   regular.forEach((item, index) => {
     const meeting = parseMeeting(item, index, 'regular', warnings);
     if (meeting) meetings.push(meeting);
@@ -449,9 +485,9 @@ export function parseTimetablePayload(
     unresolvedItems.push(preserveUnresolvedPractice(item, index));
   });
 
-  const calendarDays = parseCalendarDays(payload['rqazcList']);
+  const calendarDays = parseCalendarDays(payload.rqazcList);
   if (calendarDays.length === 0) warnings.push({ code: 'CALENDAR_DATES_UNAVAILABLE' });
-  const periods = parsePeriods(payload['xqbzxxszList'], warnings);
+  const periods = parsePeriods(payload.xqbzxxszList, warnings);
   if (periods.length === 0) warnings.push({ code: 'PERIODS_UNAVAILABLE' });
 
   return {

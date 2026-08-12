@@ -45,15 +45,20 @@ describe('eventToICS', () => {
   });
 
   it('formats an all-day event with VALUE=DATE and an exclusive next-day end', () => {
-    const allDay: CalendarEvent = { ...base, isAllDay: true, start: new Date(2026, 2, 25), end: null };
+    const allDay: CalendarEvent = {
+      ...base,
+      isAllDay: true,
+      start: new Date(2026, 2, 25),
+      end: null,
+    };
     const ics = eventToICS(allDay, { now });
     expect(ics).toContain('DTSTART;VALUE=DATE:20260325');
     expect(ics).toContain('DTEND;VALUE=DATE:20260326');
   });
 
   it('preserves the local civil date of an all-day event', () => {
-    const previousTimeZone = process.env['TZ'];
-    process.env['TZ'] = 'Asia/Shanghai';
+    const previousTimeZone = process.env.TZ;
+    process.env.TZ = 'Asia/Shanghai';
     try {
       const allDay: CalendarEvent = {
         ...base,
@@ -65,8 +70,8 @@ describe('eventToICS', () => {
       expect(ics).toContain('DTSTART;VALUE=DATE:20260325');
       expect(ics).toContain('DTEND;VALUE=DATE:20260326');
     } finally {
-      if (previousTimeZone === undefined) delete process.env['TZ'];
-      else process.env['TZ'] = previousTimeZone;
+      if (previousTimeZone === undefined) delete process.env.TZ;
+      else process.env.TZ = previousTimeZone;
     }
   });
 

@@ -90,9 +90,9 @@ export function eventToICS(event: CalendarEvent, options: EventToICSOptions = {}
     if (event.end) lines.push(`DTEND:${formatUTC(event.end)}`);
   }
 
-  if (event.title != null) lines.push(`SUMMARY:${escapeText(event.title)}`);
-  if (event.location != null) lines.push(`LOCATION:${escapeText(event.location)}`);
-  if (event.description != null) lines.push(`DESCRIPTION:${escapeText(event.description)}`);
+  if (event.title !== null) lines.push(`SUMMARY:${escapeText(event.title)}`);
+  if (event.location !== null) lines.push(`LOCATION:${escapeText(event.location)}`);
+  if (event.description !== null) lines.push(`DESCRIPTION:${escapeText(event.description)}`);
 
   lines.push('END:VEVENT', 'END:VCALENDAR');
 

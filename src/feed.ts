@@ -17,19 +17,16 @@ export async function fetchFeed(
     throw new TypeError('timeoutMs must be a finite positive timer duration.');
   }
   const controller = new AbortController();
-  let timedOut = false;
-  let callerAborted = options.signal?.aborted ?? false;
+  const timeoutReason = Symbol('timeout');
   const timeout = setTimeout(() => {
-    timedOut = true;
-    controller.abort();
+    controller.abort(timeoutReason);
   }, timeoutMs);
   const abortFromCaller = (): void => {
-    callerAborted = true;
     controller.abort();
   };
 
   if (options.signal) {
-    if (options.signal.aborted) controller.abort();
+    if (options.signal.aborted) abortFromCaller();
     else options.signal.addEventListener('abort', abortFromCaller, { once: true });
   }
 
@@ -41,9 +38,12 @@ export async function fetchFeed(
     return await response.text();
   } catch (err) {
     if (err instanceof FeedFetchError) throw err;
-    const aborted = controller.signal.aborted || (err instanceof Error && err.name === 'AbortError');
+    const aborted =
+      controller.signal.aborted || (err instanceof Error && err.name === 'AbortError');
     const reason = aborted
-      ? timedOut && !callerAborted ? 'request timed out' : 'request aborted'
+      ? controller.signal.reason === timeoutReason
+        ? 'request timed out'
+        : 'request aborted'
       : String(err);
     throw new FeedFetchError(`Failed to fetch feed: ${reason}`, { cause: err });
   } finally {

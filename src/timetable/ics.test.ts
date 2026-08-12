@@ -1,22 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import { parseCalendar } from '../parse.js';
 import { timetableToIcs } from './ics.js';
-import { type Timetable, type TimetableToIcsOptions } from './types.js';
+import type { Timetable, TimetableToIcsOptions } from './types.js';
 
 function fixture(): Timetable {
   return {
     term: { academicYear: '2026', semester: '3' },
-    meetings: [{
-      sourceId: 'teaching-class-a',
-      courseName: '高级程序设计，实验；专题',
-      teacherNames: ['教师甲'],
-      location: '教学楼 A,101',
-      weekday: 1,
-      startPeriod: 1,
-      endPeriod: 2,
-      weeks: [1, 3],
-      kind: 'regular',
-    }],
+    meetings: [
+      {
+        sourceId: 'teaching-class-a',
+        courseName: '高级程序设计，实验；专题',
+        teacherNames: ['教师甲'],
+        location: '教学楼 A,101',
+        weekday: 1,
+        startPeriod: 1,
+        endPeriod: 2,
+        weeks: [1, 3],
+        kind: 'regular',
+      },
+    ],
     unresolvedItems: [],
     periods: [
       { period: 1, label: '第一节', start: '08:00', end: '08:45' },
@@ -40,7 +42,9 @@ describe('timetableToIcs', () => {
     expect(first.match(/BEGIN:VEVENT/g)).toHaveLength(2);
     expect(first).toContain('DTSTART;TZID=Asia/Shanghai:20260907T080000');
     expect(first).toContain('DTSTART;TZID=Asia/Shanghai:20260921T080000');
-    expect(first).toContain('SUMMARY:高级程序设计\\，实验\\；专题'.replace(/\\，/g, '，').replace(/\\；/g, '；'));
+    expect(first).toContain(
+      'SUMMARY:高级程序设计\\，实验\\；专题'.replace(/\\，/g, '，').replace(/\\；/g, '；'),
+    );
     expect(first).toContain('LOCATION:教学楼 A\\,101');
     expect(first).toContain('CLASS:PRIVATE');
     expect(first).not.toMatch(/student|学号/i);
@@ -84,11 +88,13 @@ describe('timetableToIcs', () => {
 
   it('folds every physical content line at 75 UTF-8 octets or fewer', () => {
     const timetable = fixture();
-    timetable.meetings = [{
-      ...timetable.meetings[0]!,
-      courseName: '非常长的中文课程名称'.repeat(10),
-      weeks: [1],
-    }];
+    timetable.meetings = [
+      {
+        ...timetable.meetings[0]!,
+        courseName: '非常长的中文课程名称'.repeat(10),
+        weeks: [1],
+      },
+    ];
     const ics = timetableToIcs(timetable, {
       weekOneMonday: '2026-09-07',
       generatedAt: new Date('2026-08-01T00:00:00Z'),
@@ -100,11 +106,13 @@ describe('timetableToIcs', () => {
 
   it('escapes ASCII TEXT delimiters, backslashes and newlines', () => {
     const timetable = fixture();
-    timetable.meetings = [{
-      ...timetable.meetings[0]!,
-      courseName: 'A\\B,C;D\nE',
-      weeks: [1],
-    }];
+    timetable.meetings = [
+      {
+        ...timetable.meetings[0]!,
+        courseName: 'A\\B,C;D\nE',
+        weeks: [1],
+      },
+    ];
     const ics = timetableToIcs(timetable, {
       weekOneMonday: '2026-09-07',
       generatedAt: new Date('2026-08-01T00:00:00Z'),
@@ -113,39 +121,51 @@ describe('timetableToIcs', () => {
   });
 
   it('requires a date source and complete period mapping', () => {
-    expect(() => timetableToIcs(fixture(), {
-      generatedAt: new Date('2026-08-01T00:00:00Z'),
-    })).toThrowError(expect.objectContaining({ code: 'MISSING_CALENDAR_DATES' }));
+    expect(() =>
+      timetableToIcs(fixture(), {
+        generatedAt: new Date('2026-08-01T00:00:00Z'),
+      }),
+    ).toThrowError(expect.objectContaining({ code: 'MISSING_CALENDAR_DATES' }));
 
     const timetable = fixture();
     timetable.periods = [];
-    expect(() => timetableToIcs(timetable, {
-      weekOneMonday: '2026-09-07',
-      generatedAt: new Date('2026-08-01T00:00:00Z'),
-    })).toThrowError(expect.objectContaining({ code: 'MISSING_PERIOD_TIME' }));
+    expect(() =>
+      timetableToIcs(timetable, {
+        weekOneMonday: '2026-09-07',
+        generatedAt: new Date('2026-08-01T00:00:00Z'),
+      }),
+    ).toThrowError(expect.objectContaining({ code: 'MISSING_PERIOD_TIME' }));
 
-    expect(() => timetableToIcs(fixture(), {
-      weekOneMonday: '2026-09-08',
-    })).toThrowError(expect.objectContaining({ code: 'MISSING_CALENDAR_DATES' }));
+    expect(() =>
+      timetableToIcs(fixture(), {
+        weekOneMonday: '2026-09-08',
+      }),
+    ).toThrowError(expect.objectContaining({ code: 'MISSING_CALENDAR_DATES' }));
 
-    expect(() => timetableToIcs(fixture(), {
-      weekOneMonday: '2026-09-07',
-      uidDomain: 'safe.example\r\nX-INJECTED:YES',
-    })).toThrow(TypeError);
+    expect(() =>
+      timetableToIcs(fixture(), {
+        weekOneMonday: '2026-09-07',
+        uidDomain: 'safe.example\r\nX-INJECTED:YES',
+      }),
+    ).toThrow(TypeError);
 
-    expect(() => timetableToIcs(fixture(), {
-      weekOneMonday: '2026-09-07',
-      periodTimes: { 1: { start: '09:00', end: '08:00' } },
-    })).toThrowError(expect.objectContaining({ code: 'MISSING_PERIOD_TIME' }));
+    expect(() =>
+      timetableToIcs(fixture(), {
+        weekOneMonday: '2026-09-07',
+        periodTimes: { 1: { start: '09:00', end: '08:00' } },
+      }),
+    ).toThrowError(expect.objectContaining({ code: 'MISSING_PERIOD_TIME' }));
   });
 
   it('rejects malformed period override keys', () => {
     const periodTimes = {
       '1x': { start: '09:00', end: '09:45' },
     } as unknown as NonNullable<TimetableToIcsOptions['periodTimes']>;
-    expect(() => timetableToIcs(fixture(), {
-      weekOneMonday: '2026-09-07',
-      periodTimes,
-    })).toThrow(TypeError);
+    expect(() =>
+      timetableToIcs(fixture(), {
+        weekOneMonday: '2026-09-07',
+        periodTimes,
+      }),
+    ).toThrow(TypeError);
   });
 });

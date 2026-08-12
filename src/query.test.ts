@@ -88,17 +88,17 @@ describe('occurrencesInRange', () => {
       isAllDay: false,
       recurring: false,
     });
-    expect(events[0].start.toISOString()).toBe('2026-06-20T09:00:00.000Z');
-    expect(events[0].end?.toISOString()).toBe('2026-06-20T11:00:00.000Z');
+    expect(events[0]!.start.toISOString()).toBe('2026-06-20T09:00:00.000Z');
+    expect(events[0]!.end?.toISOString()).toBe('2026-06-20T11:00:00.000Z');
   });
 
   it('flags all-day events', () => {
     const parsed = parseCalendar(ALLDAY_ICS);
     const events = occurrencesInRange(parsed, D('2026-06-01T00:00:00Z'), D('2026-06-30T00:00:00Z'));
     expect(events).toHaveLength(1);
-    expect(events[0].isAllDay).toBe(true);
-    expect(events[0].title).toBe('Recruitment Week');
-    expect(events[0].location).toBeNull();
+    expect(events[0]!.isAllDay).toBe(true);
+    expect(events[0]!.title).toBe('Recruitment Week');
+    expect(events[0]!.location).toBeNull();
   });
 
   it('excludes events outside the range', () => {
@@ -157,7 +157,9 @@ describe('occurrencesInRange', () => {
   it('does not attach an exception to a recurrence with a different uid', () => {
     const parsed = parseCalendar(UNRELATED_EXCEPTION_ICS);
     const events = occurrencesInRange(parsed, D('2026-06-01T00:00:00Z'), D('2026-06-30T00:00:00Z'));
-    expect(events.map(({ uid, title, start }) => ({ uid, title, start: start.toISOString() }))).toEqual([
+    expect(
+      events.map(({ uid, title, start }) => ({ uid, title, start: start.toISOString() })),
+    ).toEqual([
       { uid: 'series-a', title: 'Series A', start: '2026-06-01T12:00:00.000Z' },
       { uid: 'series-a', title: 'Series A', start: '2026-06-08T12:00:00.000Z' },
       { uid: 'series-b', title: 'Standalone B', start: '2026-06-09T15:00:00.000Z' },
@@ -199,10 +201,8 @@ describe('occurrencesInRange', () => {
 
   it('rejects a reversed range', () => {
     const parsed = parseCalendar(WEEKLY_ICS);
-    expect(() => occurrencesInRange(
-      parsed,
-      D('2026-06-30T00:00:00Z'),
-      D('2026-06-01T00:00:00Z'),
-    )).toThrow(RangeError);
+    expect(() =>
+      occurrencesInRange(parsed, D('2026-06-30T00:00:00Z'), D('2026-06-01T00:00:00Z')),
+    ).toThrow(RangeError);
   });
 });

@@ -1,9 +1,11 @@
+import type { ParsedCalendar, ParsedCalendarEvent, ParsedCalendarTime } from './parse.js';
 import type {
-  ParsedCalendar,
-  ParsedCalendarEvent,
-  ParsedCalendarTime,
-} from './parse.js';
-import type { CalendarEvent, UpcomingOptions, PastOptions, HeatmapOptions, HeatmapBucket } from './types.js';
+  CalendarEvent,
+  UpcomingOptions,
+  PastOptions,
+  HeatmapOptions,
+  HeatmapBucket,
+} from './types.js';
 
 function toCalendarEvent(
   event: ParsedCalendarEvent,
@@ -16,7 +18,7 @@ function toCalendarEvent(
     title: event.summary || null,
     start: startTime.toJSDate(),
     end: endTime ? endTime.toJSDate() : null,
-    isAllDay: Boolean(startTime.isDate),
+    isAllDay: startTime.isDate,
     location: event.location || null,
     description: event.description || null,
     recurring,
@@ -28,7 +30,12 @@ function isCancelled(event: ParsedCalendarEvent): boolean {
   return typeof status === 'string' && status.toUpperCase() === 'CANCELLED';
 }
 
-function expand(event: ParsedCalendarEvent, start: Date, end: Date, limit: number): CalendarEvent[] {
+function expand(
+  event: ParsedCalendarEvent,
+  start: Date,
+  end: Date,
+  limit: number,
+): CalendarEvent[] {
   if (limit === 0) return [];
   if (isCancelled(event)) return [];
   if (!event.isRecurring()) {
@@ -92,7 +99,11 @@ function collectOccurrences(
   return events;
 }
 
-export function occurrencesInRange(parsed: ParsedCalendar, start: Date, end: Date): CalendarEvent[] {
+export function occurrencesInRange(
+  parsed: ParsedCalendar,
+  start: Date,
+  end: Date,
+): CalendarEvent[] {
   return collectOccurrences(parsed, start, end, Number.POSITIVE_INFINITY);
 }
 
@@ -142,8 +153,11 @@ function civilDateKey(date: Date, timeZone: string): string {
 // A UTC-midnight proxy Date for an instant's civil date in the target zone,
 // used for time-zone-independent day/week arithmetic (weekday, stepping).
 function civilProxy(date: Date, timeZone: string): Date {
-  const [y, m, d] = civilDateKey(date, timeZone).split('-').map(Number);
-  return new Date(Date.UTC(y, m - 1, d));
+  const [year, month, day] = civilDateKey(date, timeZone).split('-').map(Number);
+  if (year === undefined || month === undefined || day === undefined) {
+    throw new RangeError('Unable to resolve a calendar date in the requested time zone');
+  }
+  return new Date(Date.UTC(year, month - 1, day));
 }
 
 function proxyKey(proxy: Date): string {
@@ -187,12 +201,14 @@ export function heatmap(parsed: ParsedCalendar, options: HeatmapOptions): Heatma
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
 
-  const cursor = bucket === 'week'
-    ? weekStartProxy(civilProxy(options.start, timeZone))
-    : civilProxy(options.start, timeZone);
-  const last = bucket === 'week'
-    ? weekStartProxy(civilProxy(options.end, timeZone))
-    : civilProxy(options.end, timeZone);
+  const cursor =
+    bucket === 'week'
+      ? weekStartProxy(civilProxy(options.start, timeZone))
+      : civilProxy(options.start, timeZone);
+  const last =
+    bucket === 'week'
+      ? weekStartProxy(civilProxy(options.end, timeZone))
+      : civilProxy(options.end, timeZone);
 
   const buckets: HeatmapBucket[] = [];
   while (cursor <= last) {
