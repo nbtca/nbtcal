@@ -39,12 +39,18 @@ export interface ParsedCalendar {
   readonly vevents: readonly ParsedCalendarEvent[];
 }
 
+type IcalEvent = InstanceType<typeof ICAL.Event>;
+
+function hasIndexedExceptions(event: IcalEvent): event is IcalEvent & ParsedCalendarEvent {
+  const exceptions: unknown = event.exceptions;
+  return typeof exceptions === 'object' && exceptions !== null && !Array.isArray(exceptions);
+}
+
 export function parseCalendar(icsText: string): ParsedCalendar {
   if (icsText.trim().length === 0) throw new FeedParseError('ICS feed is empty');
   let component: InstanceType<typeof ICAL.Component>;
   try {
-    const jcal = ICAL.parse(icsText);
-    component = new ICAL.Component(jcal);
+    component = ICAL.Component.fromString(icsText);
   } catch (err) {
     throw new FeedParseError('Failed to parse ICS feed', { cause: err });
   }
@@ -54,19 +60,24 @@ export function parseCalendar(icsText: string): ParsedCalendar {
     throw new FeedParseError('Input does not contain a VCALENDAR');
   }
 
-  const allEvents = subcomponents.map((c) => new ICAL.Event(c, {
-    strictExceptions: true,
-    exceptions: [],
-  }));
+  const allEvents = subcomponents.map(
+    (c) =>
+      new ICAL.Event(c, {
+        strictExceptions: true,
+        exceptions: [],
+      }),
+  );
   for (const event of allEvents) {
     if (typeof event.uid !== 'string' || event.uid.trim().length === 0) {
       throw new FeedParseError('VEVENT is missing UID');
     }
-    if (event.component.getFirstPropertyValue('dtstart') != null) continue;
+    const start = event.component.getFirstPropertyValue('dtstart');
+    if (start !== null) continue;
     const status = event.component.getFirstPropertyValue('status');
-    const cancelledException = event.isRecurrenceException()
-      && typeof status === 'string'
-      && status.toUpperCase() === 'CANCELLED';
+    const cancelledException =
+      event.isRecurrenceException() &&
+      typeof status === 'string' &&
+      status.toUpperCase() === 'CANCELLED';
     if (!cancelledException) throw new FeedParseError('VEVENT is missing DTSTART');
   }
   const masters = new Map<string, InstanceType<typeof ICAL.Event>>();
@@ -84,6 +95,9 @@ export function parseCalendar(icsText: string): ParsedCalendar {
     related.add(event);
   }
   const vevents = allEvents.filter((event) => !related.has(event));
+  if (!vevents.every(hasIndexedExceptions)) {
+    throw new FeedParseError('Calendar parser returned an unsupported exception collection');
+  }
   return { vevents };
 }
 

@@ -4,10 +4,7 @@ export interface TransportResponse {
   text(): Promise<string>;
 }
 
-export type AuthenticatedTransport = (
-  url: URL,
-  init: RequestInit,
-) => Promise<TransportResponse>;
+export type AuthenticatedTransport = (url: URL, init: RequestInit) => Promise<TransportResponse>;
 
 export interface AcademicTermRef {
   /** Opaque JWXT academic-year code (`xnm`). */
@@ -61,15 +58,7 @@ export interface TimetableUntimedCourse {
 }
 
 export type TimetableUnresolvedSourceField =
-  | 'kcmc'
-  | 'xqj'
-  | 'zcd'
-  | 'jcs'
-  | 'cdmc'
-  | 'qsjsz'
-  | 'xksj'
-  | 'sjkcgs'
-  | 'qtkcgs';
+  'kcmc' | 'xqj' | 'zcd' | 'jcs' | 'cdmc' | 'qsjsz' | 'xksj' | 'sjkcgs' | 'qtkcgs';
 
 /**
  * An identity-free, allowlisted view of a row that cannot safely become a
@@ -120,15 +109,11 @@ export class TimetableError extends Error {
   readonly code: TimetableErrorCode;
   readonly status?: number;
 
-  constructor(
-    code: TimetableErrorCode,
-    message: string,
-    options: { status?: number } = {},
-  ) {
+  constructor(code: TimetableErrorCode, message: string, options: { status?: number } = {}) {
     super(message);
     this.name = 'TimetableError';
     this.code = code;
-    this.status = options.status;
+    if (options.status !== undefined) this.status = options.status;
   }
 }
 
@@ -138,10 +123,7 @@ export interface TimetableRequestOptions {
 
 export interface NbtTimetableClient {
   listTerms(options?: TimetableRequestOptions): Promise<AcademicTerm[]>;
-  fetchTerm(
-    term: AcademicTermRef,
-    options?: TimetableRequestOptions,
-  ): Promise<Timetable>;
+  fetchTerm(term: AcademicTermRef, options?: TimetableRequestOptions): Promise<Timetable>;
   /** Fetches sequentially to avoid unnecessary load on the campus system. */
   fetchTerms(
     terms: readonly AcademicTermRef[],

@@ -1,9 +1,8 @@
 # @nbtca/nbtcal
 
-Data-only calendar library for public NBTCA events and personal academic
-timetables. It owns parsing, date/timezone logic, typed queries and ICS
-generation. Authentication, session persistence, file output and rendering are
-the consumer's job (for example, `@nbtca/prompt`).
+Typed ESM library for NBTCA calendar feeds and personal academic timetables.
+It handles parsing, recurrence expansion, date queries, heatmaps, and ICS
+generation without owning credentials, sessions, files, or UI.
 
 ## Install
 
@@ -17,29 +16,29 @@ npm install @nbtca/nbtcal
 import { loadCalendar } from '@nbtca/nbtcal';
 
 const calendar = await loadCalendar();
+const start = new Date('2026-09-01T00:00:00Z');
+const end = new Date('2026-10-01T00:00:00Z');
 
-calendar.upcoming({ days: 30 }); // CalendarEvent[] within the next 30 days
-calendar.next(5);                // the next 5 occurrences
-calendar.inRange(start, end);    // occurrences in an explicit range
-calendar.heatmap({ start, end, bucket: 'day' }); // dense HeatmapBucket[]
+const upcoming = calendar.upcoming({ days: 30 });
+const nextFive = calendar.next(5);
+const range = calendar.inRange(start, end);
+const dailyCounts = calendar.heatmap({ start, end, bucket: 'day' });
 ```
 
-Recurring events are expanded within each query window. `heatmap` output is
-dense — every day (or week) in the range is present, including zero-count
-entries — so consumers can render a contiguous grid.
-
-Low-level building blocks (`fetchFeed`, `parseCalendar`, `occurrencesInRange`,
-`upcoming`, `next`, `heatmap`) are exported for custom or offline use.
+Recurring events are expanded within each query window. Heatmaps are dense and
+include zero-count day or week buckets. Lower-level feed, parser, query, and ICS
+functions are available from the package root.
 
 ## Personal timetable
 
-The `@nbtca/nbtcal/timetable` subpath understands the campus JWXT timetable
-protocol but never receives a student id, password or CookieJar. The host
-application injects a narrowly scoped, already-authenticated transport:
+The `@nbtca/nbtcal/timetable` subpath accepts an authenticated transport for the
+campus JWXT protocol:
 
 ```ts
 import {
   createNbtTimetableClient,
+  createTimetableSchedule,
+  findAcademicTerm,
   timetableToIcs,
 } from '@nbtca/nbtcal/timetable';
 
@@ -48,29 +47,33 @@ const client = createNbtTimetableClient(authenticatedTransport, {
 });
 
 const terms = await client.listTerms();
-const current = terms.find((term) => term.current)!;
+const current = findAcademicTerm(terms);
+if (!current) throw new Error('No current academic term');
 const timetable = await client.fetchTerm(current);
+const schedule = createTimetableSchedule(timetable, { weekOneMonday: '2026-09-07' });
+const week = schedule.weekAt(new Date());
+const today = schedule.meetingsOnDay(week, schedule.weekdayAt(new Date()));
+const nextClass = schedule.next();
 
 const ics = timetableToIcs(timetable, {
-  // Required when JWXT does not return authoritative calendar dates.
-  weekOneMonday: 'YYYY-MM-DD', // replace with the confirmed school-calendar date
+  // Confirm this date for the selected term.
+  weekOneMonday: '2026-09-07',
 });
 ```
 
-`fetchTerms()` is deliberately sequential to avoid unnecessary load on school
-systems. Week expressions such as odd/even and discontinuous weeks are expanded
-to concrete dates, and the ICS writer emits one `VEVENT` per occurrence. This
-avoids ambiguous recurrence rules and gives every occurrence a stable UID that
-does not contain student information.
+`findAcademicTerm` accepts an opaque `year:code` selector or the `year-1`,
+`year-2`, and `year-3` semester aliases.
 
-Malformed individual records produce structured warnings instead of silently
-disappearing. Practice records without a concrete weekday and period are kept
-in `unresolvedItems` as an identity-free allowlist of known fields; the library
-never invents all-day events for them. Because the observed `rqazcList` is
-empty and its non-empty schema has not been verified, parsed responses never
-guess calendar dates—confirm and pass `weekOneMonday` for export. This produces
-a base teaching-week schedule only; holidays, make-up classes and temporary
-changes still require an authoritative calendar or school notice.
+The host injects an authenticated transport; this package never receives
+credentials or a cookie jar. If JWXT omits authoritative calendar dates,
+`weekOneMonday` is required. Malformed rows produce structured warnings, and
+unresolved practice rows retain only allowlisted, identity-free fields.
+
+## Quality checks
+
+```bash
+npm run check
+```
 
 ## License
 

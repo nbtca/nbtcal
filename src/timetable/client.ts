@@ -20,9 +20,10 @@ function looksLikeLoginPage(response: TransportResponse, body: string): boolean 
     try {
       const finalUrl = new URL(response.url);
       if (
-        finalUrl.pathname.includes('/authserver/login')
-        || finalUrl.pathname.includes('/users/sign_in')
-      ) return true;
+        finalUrl.pathname.includes('/authserver/login') ||
+        finalUrl.pathname.includes('/users/sign_in')
+      )
+        return true;
     } catch {
       // A malformed optional response URL is not exposed in the public error.
     }
@@ -36,8 +37,8 @@ function asSafeTransportError(error: unknown): Error {
     return new DOMException('The timetable request was aborted.', 'AbortError');
   }
   if (typeof error === 'object' && error !== null) {
-    const code = Reflect.get(error, 'code');
-    const name = Reflect.get(error, 'name');
+    const code = 'code' in error ? error.code : undefined;
+    const name = 'name' in error ? error.name : undefined;
     if (code === 'SESSION_EXPIRED' || name === 'SessionExpiredError') {
       return new TimetableError('SESSION_EXPIRED', 'The authenticated campus session has expired.');
     }
@@ -101,7 +102,10 @@ function formHeaders(referer: URL): Record<string, string> {
   };
 }
 
-function mergePeriods(primary: readonly TimetablePeriod[], supplement: readonly TimetablePeriod[]): TimetablePeriod[] {
+function mergePeriods(
+  primary: readonly TimetablePeriod[],
+  supplement: readonly TimetablePeriod[],
+): TimetablePeriod[] {
   const merged = new Map<number, TimetablePeriod>();
   for (const period of primary) merged.set(period.period, period);
   for (const period of supplement) merged.set(period.period, period);
@@ -124,7 +128,7 @@ export function createNbtTimetableClient(
     const body = await requestText(transport, scheduleIndexUrl, {
       method: 'GET',
       headers: { Accept: 'text/html,application/xhtml+xml' },
-      signal: requestOptions.signal,
+      ...(requestOptions.signal ? { signal: requestOptions.signal } : {}),
     });
     return parseAvailableTerms(body);
   }
@@ -140,7 +144,7 @@ export function createNbtTimetableClient(
       method: 'POST',
       body: termForm(term),
       headers: formHeaders(scheduleIndexUrl),
-      signal: requestOptions.signal,
+      ...(requestOptions.signal ? { signal: requestOptions.signal } : {}),
     };
     const scheduleBody = await requestText(transport, url(SCHEDULE_DATA_PATH), init);
     const timetable = parseTimetablePayload(scheduleBody, term, now());

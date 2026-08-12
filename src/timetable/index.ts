@@ -6,6 +6,7 @@ export {
   parseWeekExpression,
 } from './parse.js';
 export { timetableToIcs } from './ics.js';
+export { campusWeekday, createTimetableSchedule, findAcademicTerm } from './schedule.js';
 export { TimetableError } from './types.js';
 export type {
   AcademicTerm,
@@ -29,3 +30,8 @@ export type {
   TransportResponse,
   Weekday,
 } from './types.js';
+export type {
+  TimetableOccurrence,
+  TimetableSchedule,
+  TimetableScheduleOptions,
+} from './schedule.js';

@@ -2,18 +2,23 @@ import { describe, expect, it } from 'vitest';
 import { createNbtTimetableClient } from './client.js';
 import { TimetableError, type AuthenticatedTransport, type TransportResponse } from './types.js';
 
-function response(body: unknown, options: { status?: number; url?: string } = {}): TransportResponse {
+function response(
+  body: unknown,
+  options: { status?: number; url?: string } = {},
+): TransportResponse {
   const text = typeof body === 'string' ? body : JSON.stringify(body);
   return {
     status: options.status ?? 200,
-    url: options.url,
-    async text() { return text; },
+    ...(options.url ? { url: options.url } : {}),
+    async text() {
+      return text;
+    },
   };
 }
 
 describe('createNbtTimetableClient', () => {
   it('uses the injected transport for term catalog, timetable and periods', async () => {
-    const calls: Array<{ url: URL; init: RequestInit }> = [];
+    const calls: { url: URL; init: RequestInit }[] = [];
     const transport: AuthenticatedTransport = async (url, init) => {
       calls.push({ url, init });
       if (url.pathname.endsWith('cxXskbcxIndex.html')) {
@@ -54,10 +59,10 @@ describe('createNbtTimetableClient', () => {
   });
 
   it('recognizes a 200 login page as an expired session', async () => {
-    const transport: AuthenticatedTransport = async () => response(
-      '<form id="pwdFromId"><input id="pwdEncryptSalt"></form>',
-      { url: 'https://auth.example.edu/authserver/login' },
-    );
+    const transport: AuthenticatedTransport = async () =>
+      response('<form id="pwdFromId"><input id="pwdEncryptSalt"></form>', {
+        url: 'https://auth.example.edu/authserver/login',
+      });
     const client = createNbtTimetableClient(transport, { baseUrl: 'https://jwxt.example.edu' });
     await expect(client.listTerms()).rejects.toMatchObject({ code: 'SESSION_EXPIRED' });
   });
@@ -67,7 +72,11 @@ describe('createNbtTimetableClient', () => {
     const transport: AuthenticatedTransport = async () => response(secretMarker, { status: 500 });
     const client = createNbtTimetableClient(transport, { baseUrl: 'https://jwxt.example.edu' });
     let caught: unknown;
-    try { await client.listTerms(); } catch (error) { caught = error; }
+    try {
+      await client.listTerms();
+    } catch (error) {
+      caught = error;
+    }
     expect(caught).toBeInstanceOf(TimetableError);
     expect(String(caught)).not.toContain(secretMarker);
     expect(caught).toMatchObject({ code: 'HTTP_ERROR', status: 500 });
@@ -76,7 +85,9 @@ describe('createNbtTimetableClient', () => {
   it('reports a known HTTP status even when its body cannot be read', async () => {
     const transport: AuthenticatedTransport = async () => ({
       status: 503,
-      async text() { throw new Error('body unavailable'); },
+      async text() {
+        throw new Error('body unavailable');
+      },
     });
     const client = createNbtTimetableClient(transport, { baseUrl: 'https://jwxt.example.edu' });
     await expect(client.listTerms()).rejects.toMatchObject({ code: 'HTTP_ERROR', status: 503 });
@@ -89,12 +100,18 @@ describe('createNbtTimetableClient', () => {
     };
     const client = createNbtTimetableClient(transport, { baseUrl: 'https://jwxt.example.edu' });
     let caught: unknown;
-    try { await client.listTerms(); } catch (error) { caught = error; }
+    try {
+      await client.listTerms();
+    } catch (error) {
+      caught = error;
+    }
     expect(caught).toMatchObject({ name: 'AbortError' });
     expect(String(caught)).not.toContain(marker);
-    expect(() => createNbtTimetableClient(transport, {
-      baseUrl: 'http://jwxt.example.edu',
-    })).toThrow(TypeError);
+    expect(() =>
+      createNbtTimetableClient(transport, {
+        baseUrl: 'http://jwxt.example.edu',
+      }),
+    ).toThrow(TypeError);
   });
 
   it('fetches multiple terms sequentially', async () => {
@@ -106,10 +123,13 @@ describe('createNbtTimetableClient', () => {
       await Promise.resolve();
       active -= 1;
       if (url.pathname.endsWith('cxXsgrkb.html')) {
-        const form = new URLSearchParams(String(init.body ?? ''));
+        const form = new URLSearchParams(typeof init.body === 'string' ? init.body : '');
         return response({
           xsxx: { XNM: form.get('xnm'), XQM: form.get('xqm') },
-          kbList: [], sjkList: [], rqazcList: [], xqbzxxszList: [],
+          kbList: [],
+          sjkList: [],
+          rqazcList: [],
+          xqbzxxszList: [],
         });
       }
       return response([{ jcdm: '1', qssj: '08:00', jssj: '08:45' }]);

@@ -66,134 +66,183 @@ describe('parseWeekExpression', () => {
 
 describe('parseTimetablePayload', () => {
   it('normalizes meetings, periods, and authoritative calendar dates', () => {
-    const timetable = parseTimetablePayload({
-      xsxx: { XNM: '2026', XQM: '3' },
-      kbList: [{
-        jxb_id: 'class-a',
-        kcmc: '离散数学',
-        xm: '教师甲、教师乙',
-        cdmc: '教学楼 A-101',
-        xqj: '2',
-        zcd: '1-15周(单)',
-        jcs: '3-5',
-      }],
-      sjkList: [{ kcmc: '实践课程', qsjsz: '1-2周' }],
-      rqazcList: [{ zc: '1', xqj: '2', rq: '2026-09-08' }],
-      xqbzxxszList: [
-        { jcdm: '3', jcmc: '第三节', qssj: '09:50', jssj: '10:35' },
-        { jcdm: '5', jcmc: '第五节', qssj: '11:30', jssj: '12:15' },
-      ],
-    }, { academicYear: '2026', semester: '3' }, new Date('2026-08-01T00:00:00Z'));
+    const timetable = parseTimetablePayload(
+      {
+        xsxx: { XNM: '2026', XQM: '3' },
+        kbList: [
+          {
+            jxb_id: 'class-a',
+            kcmc: '离散数学',
+            xm: '教师甲、教师乙',
+            cdmc: '教学楼 A-101',
+            xqj: '2',
+            zcd: '1-15周(单)',
+            jcs: '3-5',
+          },
+        ],
+        sjkList: [{ kcmc: '实践课程', qsjsz: '1-2周' }],
+        rqazcList: [{ zc: '1', xqj: '2', rq: '2026-09-08' }],
+        xqbzxxszList: [
+          { jcdm: '3', jcmc: '第三节', qssj: '09:50', jssj: '10:35' },
+          { jcdm: '5', jcmc: '第五节', qssj: '11:30', jssj: '12:15' },
+        ],
+      },
+      { academicYear: '2026', semester: '3' },
+      new Date('2026-08-01T00:00:00Z'),
+    );
 
-    expect(timetable.meetings).toEqual([expect.objectContaining({
-      sourceId: 'class-a',
-      weekday: 2,
-      startPeriod: 3,
-      endPeriod: 5,
-      weeks: [1, 3, 5, 7, 9, 11, 13, 15],
-    })]);
+    expect(timetable.meetings).toEqual([
+      expect.objectContaining({
+        sourceId: 'class-a',
+        weekday: 2,
+        startPeriod: 3,
+        endPeriod: 5,
+        weeks: [1, 3, 5, 7, 9, 11, 13, 15],
+      }),
+    ]);
     expect(timetable.periods.map((period) => period.period)).toEqual([3, 5]);
-    expect(timetable.calendarDays).toEqual([{
-      week: 1,
-      weekday: 2,
-      date: '2026-09-08',
-    }]);
-    expect(timetable.untimedCourses).toEqual([{
-      sourceId: null,
-      courseName: '实践课程',
-      teacherNames: [],
-      campus: null,
-      location: null,
-      weeks: [1, 2],
-      kind: 'practice',
-    }]);
+    expect(timetable.calendarDays).toEqual([
+      {
+        week: 1,
+        weekday: 2,
+        date: '2026-09-08',
+      },
+    ]);
+    expect(timetable.untimedCourses).toEqual([
+      {
+        sourceId: null,
+        courseName: '实践课程',
+        teacherNames: [],
+        campus: null,
+        location: null,
+        weeks: [1, 2],
+        kind: 'practice',
+      },
+    ]);
     expect(timetable.unresolvedItems).toEqual([]);
-    expect(timetable.warnings).not.toContainEqual(expect.objectContaining({ code: 'UNRESOLVED_PRACTICE' }));
-    expect(timetable.warnings).not.toContainEqual(expect.objectContaining({ code: 'CALENDAR_DATES_UNAVAILABLE' }));
-  });
-
-  it('rejects a response for a different term without exposing response data', () => {
-    expect(() => parseTimetablePayload({
-      xsxx: { XNM: '2025', XQM: '12' },
-      kbList: [],
-      sjkList: [],
-    }, { academicYear: '2026', semester: '3' })).toThrowError(
-      expect.objectContaining({ code: 'TERM_MISMATCH' }),
+    expect(timetable.warnings).not.toContainEqual(
+      expect.objectContaining({ code: 'UNRESOLVED_PRACTICE' }),
+    );
+    expect(timetable.warnings).not.toContainEqual(
+      expect.objectContaining({ code: 'CALENDAR_DATES_UNAVAILABLE' }),
     );
   });
 
+  it('rejects a response for a different term without exposing response data', () => {
+    expect(() =>
+      parseTimetablePayload(
+        {
+          xsxx: { XNM: '2025', XQM: '12' },
+          kbList: [],
+          sjkList: [],
+        },
+        { academicYear: '2026', semester: '3' },
+      ),
+    ).toThrowError(expect.objectContaining({ code: 'TERM_MISMATCH' }));
+  });
+
   it('fails closed when the response does not confirm its term', () => {
-    expect(() => parseTimetablePayload({ kbList: [], sjkList: [] }, {
-      academicYear: '2026', semester: '3',
-    })).toThrowError(expect.objectContaining({ code: 'TERM_MISMATCH' }));
+    expect(() =>
+      parseTimetablePayload(
+        { kbList: [], sjkList: [] },
+        {
+          academicYear: '2026',
+          semester: '3',
+        },
+      ),
+    ).toThrowError(expect.objectContaining({ code: 'TERM_MISMATCH' }));
   });
 
   it('rejects non-timetable JSON', () => {
-    expect(() => parseTimetablePayload('{}', { academicYear: '2026', semester: '3' }))
-      .toThrowError(expect.objectContaining({ code: 'INVALID_TIMETABLE' }));
+    expect(() => parseTimetablePayload('{}', { academicYear: '2026', semester: '3' })).toThrowError(
+      expect.objectContaining({ code: 'INVALID_TIMETABLE' }),
+    );
   });
 
   it('rejects an invalid fetch timestamp', () => {
-    expect(() => parseTimetablePayload({
-      xsxx: { XNM: '2026', XQM: '3' },
-      kbList: [],
-      sjkList: [],
-    }, { academicYear: '2026', semester: '3' }, new Date('invalid'))).toThrow(TypeError);
+    expect(() =>
+      parseTimetablePayload(
+        {
+          xsxx: { XNM: '2026', XQM: '3' },
+          kbList: [],
+          sjkList: [],
+        },
+        { academicYear: '2026', semester: '3' },
+        new Date('invalid'),
+      ),
+    ).toThrow(TypeError);
   });
 
   it('does not accept a weekday with trailing characters', () => {
-    const timetable = parseTimetablePayload({
-      xsxx: { XNM: '2026', XQM: '3' },
-      kbList: [{ kcmc: '课程', xqj: '1x', zcd: '1周', jcs: '1-2' }],
-      sjkList: [],
-    }, { academicYear: '2026', semester: '3' });
+    const timetable = parseTimetablePayload(
+      {
+        xsxx: { XNM: '2026', XQM: '3' },
+        kbList: [{ kcmc: '课程', xqj: '1x', zcd: '1周', jcs: '1-2' }],
+        sjkList: [],
+      },
+      { academicYear: '2026', semester: '3' },
+    );
     expect(timetable.meetings).toEqual([]);
     expect(timetable.warnings).toContainEqual({
-      code: 'INVALID_MEETING', itemIndex: 0, field: 'weekday',
+      code: 'INVALID_MEETING',
+      itemIndex: 0,
+      field: 'weekday',
     });
   });
 
   it('rejects conflicting dates for the same teaching day', () => {
-    const timetable = parseTimetablePayload({
-      xsxx: { XNM: '2026', XQM: '3' },
-      kbList: [],
-      sjkList: [],
-      rqazcList: [
-        { zc: '1', xqj: '1', rq: '2026-09-07' },
-        { zc: '1', xqj: '1', rq: '2026-09-14' },
-      ],
-    }, { academicYear: '2026', semester: '3' });
+    const timetable = parseTimetablePayload(
+      {
+        xsxx: { XNM: '2026', XQM: '3' },
+        kbList: [],
+        sjkList: [],
+        rqazcList: [
+          { zc: '1', xqj: '1', rq: '2026-09-07' },
+          { zc: '1', xqj: '1', rq: '2026-09-14' },
+        ],
+      },
+      { academicYear: '2026', semester: '3' },
+    );
 
     expect(timetable.calendarDays).toEqual([]);
     expect(timetable.warnings).toContainEqual({ code: 'CALENDAR_DATES_UNAVAILABLE' });
   });
 
   it('normalizes an untimed practice course from its composite field', () => {
-    const timetable = parseTimetablePayload({
-      xsxx: { XNM: '2026', XQM: '3' },
-      kbList: [],
-      sjkList: [{ sjkcgs: '大学生体能测试Ⅰ◇体育老师(共1周)/16周' }],
-    }, { academicYear: '2026', semester: '3' });
+    const timetable = parseTimetablePayload(
+      {
+        xsxx: { XNM: '2026', XQM: '3' },
+        kbList: [],
+        sjkList: [{ sjkcgs: '大学生体能测试Ⅰ◇体育老师(共1周)/16周' }],
+      },
+      { academicYear: '2026', semester: '3' },
+    );
 
-    expect(timetable.untimedCourses).toEqual([{
-      sourceId: null,
-      courseName: '大学生体能测试Ⅰ',
-      teacherNames: ['体育老师'],
-      campus: null,
-      location: null,
-      weeks: [16],
-      kind: 'practice',
-    }]);
+    expect(timetable.untimedCourses).toEqual([
+      {
+        sourceId: null,
+        courseName: '大学生体能测试Ⅰ',
+        teacherNames: ['体育老师'],
+        campus: null,
+        location: null,
+        weeks: [16],
+        kind: 'practice',
+      },
+    ]);
     expect(timetable.unresolvedItems).toEqual([]);
   });
 });
 
 describe('parsePeriodPayload', () => {
   it('parses the direct-array period API shape', () => {
-    expect(parsePeriodPayload(JSON.stringify([
-      { jcdm: '1', jcmc: '第一节', qssj: '08:00:00', jssj: '08:45:00' },
-      { jcdm: '2', jcmc: '第二节', qssj: '08:50', jssj: '09:35' },
-    ]))).toEqual([
+    expect(
+      parsePeriodPayload(
+        JSON.stringify([
+          { jcdm: '1', jcmc: '第一节', qssj: '08:00:00', jssj: '08:45:00' },
+          { jcdm: '2', jcmc: '第二节', qssj: '08:50', jssj: '09:35' },
+        ]),
+      ),
+    ).toEqual([
       { period: 1, label: '第一节', start: '08:00', end: '08:45' },
       { period: 2, label: '第二节', start: '08:50', end: '09:35' },
     ]);

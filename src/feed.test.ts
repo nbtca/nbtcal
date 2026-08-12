@@ -3,14 +3,13 @@ import { fetchFeed, DEFAULT_FEED_URL } from './feed.js';
 import { FeedFetchError } from './types.js';
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
 describe('fetchFeed', () => {
   it('returns the response text on success', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response('BEGIN:VCALENDAR', { status: 200 }),
-    );
+    const fetchMock = vi.fn().mockResolvedValue(new Response('BEGIN:VCALENDAR', { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
     const text = await fetchFeed();
@@ -39,15 +38,53 @@ describe('fetchFeed', () => {
   it('reports caller cancellation as aborted instead of timed out', async () => {
     const controller = new AbortController();
     controller.abort();
-    vi.stubGlobal('fetch', vi.fn((_url: string, init: RequestInit) => new Promise((_resolve, reject) => {
-      const signal = init.signal!;
-      if (signal.aborted) reject(new DOMException('Aborted', 'AbortError'));
-      else signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
-    })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url: string, init: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            const signal = init.signal!;
+            if (signal.aborted) reject(new DOMException('Aborted', 'AbortError'));
+            else
+              signal.addEventListener(
+                'abort',
+                () => {
+                  reject(new DOMException('Aborted', 'AbortError'));
+                },
+                { once: true },
+              );
+          }),
+      ),
+    );
 
     await expect(fetchFeed(undefined, { signal: controller.signal })).rejects.toMatchObject({
       message: 'Failed to fetch feed: request aborted',
     });
+  });
+
+  it('reports an expired timeout as timed out', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url: string, init: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            init.signal?.addEventListener(
+              'abort',
+              () => {
+                reject(new DOMException('Aborted', 'AbortError'));
+              },
+              { once: true },
+            );
+          }),
+      ),
+    );
+
+    const result = expect(fetchFeed(undefined, { timeoutMs: 100 })).rejects.toMatchObject({
+      message: 'Failed to fetch feed: request timed out',
+    });
+    await vi.advanceTimersByTimeAsync(100);
+    await result;
   });
 
   it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY, 2_147_483_648])(

@@ -1,7 +1,13 @@
 import { fetchFeed, type FetchFeedOptions } from './feed.js';
 import { parseCalendar, type ParsedCalendar } from './parse.js';
 import { occurrencesInRange, upcoming, past, next, heatmap } from './query.js';
-import type { CalendarEvent, UpcomingOptions, PastOptions, HeatmapOptions, HeatmapBucket } from './types.js';
+import type {
+  CalendarEvent,
+  UpcomingOptions,
+  PastOptions,
+  HeatmapOptions,
+  HeatmapBucket,
+} from './types.js';
 
 export interface Calendar {
   upcoming(options?: UpcomingOptions): CalendarEvent[];

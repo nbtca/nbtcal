@@ -11,7 +11,10 @@ describe('loadCalendar', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(MIXED_ICS, { status: 200 })));
 
     const calendar = await loadCalendar();
-    const events = calendar.inRange(new Date('2026-06-20T00:00:00Z'), new Date('2026-06-21T00:00:00Z'));
+    const events = calendar.inRange(
+      new Date('2026-06-20T00:00:00Z'),
+      new Date('2026-06-21T00:00:00Z'),
+    );
     expect(events.map((e) => e.uid).sort()).toEqual(['timed-1', 'timed-2']);
 
     const buckets = calendar.heatmap({

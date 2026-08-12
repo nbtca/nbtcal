@@ -8,13 +8,19 @@ const D = (iso: string) => new Date(iso);
 describe('heatmap (day buckets)', () => {
   it('is dense: every day in range is present, including zeros', () => {
     const parsed = parseCalendar(MIXED_ICS);
-    const buckets = heatmap(parsed, { start: D('2026-06-19T00:00:00Z'), end: D('2026-06-21T00:00:00Z') });
+    const buckets = heatmap(parsed, {
+      start: D('2026-06-19T00:00:00Z'),
+      end: D('2026-06-21T00:00:00Z'),
+    });
     expect(buckets.map((b) => b.date)).toEqual(['2026-06-19', '2026-06-20', '2026-06-21']);
   });
 
   it('counts multiple events on the same day', () => {
     const parsed = parseCalendar(MIXED_ICS);
-    const buckets = heatmap(parsed, { start: D('2026-06-19T00:00:00Z'), end: D('2026-06-21T00:00:00Z') });
+    const buckets = heatmap(parsed, {
+      start: D('2026-06-19T00:00:00Z'),
+      end: D('2026-06-21T00:00:00Z'),
+    });
     const byDate = Object.fromEntries(buckets.map((b) => [b.date, b.count]));
     // timed-1 (09:00) and timed-2 (14:00) both on 06-20.
     expect(byDate['2026-06-20']).toBe(2);
@@ -25,16 +31,21 @@ describe('heatmap (day buckets)', () => {
   it('counts recurring occurrences', () => {
     const parsed = parseCalendar(MIXED_ICS);
     // 2026-06-08 is a weekly-meeting occurrence and nothing else.
-    const buckets = heatmap(parsed, { start: D('2026-06-08T00:00:00Z'), end: D('2026-06-08T00:00:00Z') });
+    const buckets = heatmap(parsed, {
+      start: D('2026-06-08T00:00:00Z'),
+      end: D('2026-06-08T00:00:00Z'),
+    });
     expect(buckets).toEqual([{ date: '2026-06-08', count: 1 }]);
   });
 
   it('rejects a reversed range before applying timezone padding', () => {
     const parsed = parseCalendar(MIXED_ICS);
-    expect(() => heatmap(parsed, {
-      start: D('2026-06-21T00:00:00Z'),
-      end: D('2026-06-20T00:00:00Z'),
-    })).toThrow(RangeError);
+    expect(() =>
+      heatmap(parsed, {
+        start: D('2026-06-21T00:00:00Z'),
+        end: D('2026-06-20T00:00:00Z'),
+      }),
+    ).toThrow(RangeError);
   });
 });
 
@@ -53,7 +64,10 @@ END:VCALENDAR`;
 
   it('buckets by Asia/Shanghai by default (after 16:00 UTC counts as next day)', () => {
     const parsed = parseCalendar(BOUNDARY_ICS);
-    const buckets = heatmap(parsed, { start: D('2026-06-20T00:00:00Z'), end: D('2026-06-20T00:00:00Z') });
+    const buckets = heatmap(parsed, {
+      start: D('2026-06-20T00:00:00Z'),
+      end: D('2026-06-20T00:00:00Z'),
+    });
     expect(buckets).toEqual([{ date: '2026-06-20', count: 1 }]);
   });
 
