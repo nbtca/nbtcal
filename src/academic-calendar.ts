@@ -23,14 +23,29 @@ const BREAK_TITLES = new Set(['寒假', '暑假', '暑期']);
 const EXAM_WEEK_TITLE = '期末考试周';
 const MIN_BREAK_DAYS = 3;
 
-function civilDay(date: Date): number {
-  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / DAY_MS;
+function isUtcCivilProxy(date: Date): boolean {
+  return (
+    date.getUTCHours() === 0 &&
+    date.getUTCMinutes() === 0 &&
+    date.getUTCSeconds() === 0 &&
+    date.getUTCMilliseconds() === 0
+  );
+}
+
+function civilParts(date: Date, allDay: boolean): readonly [number, number, number] {
+  return allDay && isUtcCivilProxy(date)
+    ? [date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()]
+    : [date.getFullYear(), date.getMonth(), date.getDate()];
+}
+
+function civilDay(date: Date, allDay: boolean): number {
+  return Date.UTC(...civilParts(date, allDay)) / DAY_MS;
 }
 
 export function isAcademicBreakEvent(e: CalendarEvent): boolean {
   const title = institutionalTitle(e);
   if (!title || !BREAK_TITLES.has(title) || !e.isAllDay || !e.end) return false;
-  return civilDay(e.end) - civilDay(e.start) >= MIN_BREAK_DAYS;
+  return civilDay(e.end, true) - civilDay(e.start, true) >= MIN_BREAK_DAYS;
 }
 
 function semesterForEvent(e: CalendarEvent): Semester | null {
@@ -50,12 +65,13 @@ export function findBreakEvents(events: readonly CalendarEvent[]): CalendarEvent
   return events.filter(isAcademicBreakEvent).sort((a, b) => a.start.getTime() - b.start.getTime());
 }
 
-function toIsoDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function toIsoDate(d: Date, allDay: boolean): string {
+  const [year, zeroBasedMonth, day] = civilParts(d, allDay);
+  return `${year}-${String(zeroBasedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
-function currentWeekNumber(weekOne: Date, now: Date): number {
-  const days = civilDay(now) - civilDay(weekOne);
+function currentWeekNumber(weekOne: Date, weekOneIsAllDay: boolean, now: Date): number {
+  const days = civilDay(now, false) - civilDay(weekOne, weekOneIsAllDay);
   return Math.floor(days / 7) + 1;
 }
 
@@ -105,11 +121,11 @@ export function currentAcademicWindow(
 
   const semester = semesterForEvent(current);
   if (!semester) return null;
-  const startYear = current.start.getFullYear();
+  const [startYear] = civilParts(current.start, current.isAllDay);
   const academicYear =
     semester === '1' ? `${startYear}-${startYear + 1}` : `${startYear - 1}-${startYear}`;
-  const weekOneMonday = toIsoDate(current.start);
-  const currentWeek = currentWeekNumber(current.start, now);
+  const weekOneMonday = toIsoDate(current.start, current.isAllDay);
+  const currentWeek = currentWeekNumber(current.start, current.isAllDay, now);
 
   const future = [...events]
     .filter(
@@ -127,7 +143,10 @@ export function currentAcademicWindow(
     weekOneMonday,
     currentWeek,
     ...(future && futureTitle
-      ? { nextBreakStart: toIsoDate(future.start), nextBreakTitle: futureTitle }
+      ? {
+          nextBreakStart: toIsoDate(future.start, future.isAllDay),
+          nextBreakTitle: futureTitle,
+        }
       : {}),
   };
 }
@@ -139,5 +158,5 @@ export function inferWeekOneMonday(events: readonly CalendarEvent[], now: Date):
   const upcoming = events
     .filter((e) => isSemesterStartEvent(e) && e.start.getTime() > now.getTime())
     .sort((a, b) => a.start.getTime() - b.start.getTime())[0];
-  return upcoming ? toIsoDate(upcoming.start) : null;
+  return upcoming ? toIsoDate(upcoming.start, upcoming.isAllDay) : null;
 }

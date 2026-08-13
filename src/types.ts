@@ -1,7 +1,9 @@
 export interface CalendarEvent {
   uid: string;
   title: string | null;
+  /** All-day values returned by query APIs use UTC midnight as a civil-date proxy. */
   start: Date;
+  /** All-day values returned by query APIs use UTC midnight as a civil-date proxy. */
   end: Date | null;
   isAllDay: boolean;
   location: string | null;

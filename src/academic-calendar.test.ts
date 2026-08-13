@@ -8,11 +8,13 @@ import {
 import type { CalendarEvent } from './types.js';
 
 function ev(title: string, start: string, end: string, isAllDay = true): CalendarEvent {
+  const date = (value: string) =>
+    isAllDay ? new Date(`${value}T00:00:00Z`) : new Date(`${value}T00:00:00`);
   return {
     uid: `${title}-${start}`,
     title,
-    start: new Date(`${start}T00:00:00`),
-    end: new Date(`${end}T00:00:00`),
+    start: date(start),
+    end: date(end),
     isAllDay,
     location: null,
     description: null,
@@ -173,6 +175,32 @@ describe('inferWeekOneMonday', () => {
   it('returns null while on break with no known upcoming semester-start marker yet', () => {
     const now = new Date('2026-07-15T12:00:00');
     expect(inferWeekOneMonday([SUMMER_2026], now)).toBeNull();
+  });
+
+  it('preserves caller-created local-midnight all-day dates', () => {
+    const previousTimeZone = process.env.TZ;
+    process.env.TZ = 'Asia/Singapore';
+    try {
+      const localStart: CalendarEvent = {
+        uid: 'caller-local-midnight',
+        title: '[NBT] 秋季学期开始上课',
+        start: new Date(2026, 0, 1),
+        end: new Date(2026, 0, 2),
+        isAllDay: true,
+        location: null,
+        description: null,
+        recurring: false,
+      };
+
+      expect(inferWeekOneMonday([localStart], new Date(2025, 11, 31, 12))).toBe('2026-01-01');
+      expect(currentAcademicWindow([localStart], new Date(2026, 0, 8, 9))).toMatchObject({
+        academicYear: '2026-2027',
+        weekOneMonday: '2026-01-01',
+      });
+    } finally {
+      if (previousTimeZone === undefined) delete process.env.TZ;
+      else process.env.TZ = previousTimeZone;
+    }
   });
 
   it('does not infer the previous term after a completed break', () => {
