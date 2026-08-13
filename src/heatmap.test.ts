@@ -80,6 +80,58 @@ END:VCALENDAR`;
     });
     expect(buckets).toEqual([{ date: '2026-06-19', count: 1 }]);
   });
+
+  it('preserves an all-day event date independently of the host time zone', () => {
+    const previousTimeZone = process.env.TZ;
+    process.env.TZ = 'Pacific/Kiritimati';
+    try {
+      const parsed = parseCalendar(`BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:all-day-boundary
+SUMMARY:All Day
+DTSTART;VALUE=DATE:20260620
+DTEND;VALUE=DATE:20260621
+END:VEVENT
+END:VCALENDAR`);
+
+      expect(
+        heatmap(parsed, {
+          start: D('2026-06-20T00:00:00Z'),
+          end: D('2026-06-20T00:00:00Z'),
+        }),
+      ).toEqual([{ date: '2026-06-20', count: 1 }]);
+    } finally {
+      if (previousTimeZone === undefined) delete process.env.TZ;
+      else process.env.TZ = previousTimeZone;
+    }
+  });
+
+  it('preserves an all-day civil date skipped by the host time zone', () => {
+    const previousTimeZone = process.env.TZ;
+    process.env.TZ = 'Pacific/Apia';
+    try {
+      const parsed = parseCalendar(`BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:all-day-skipped-date
+SUMMARY:All Day
+DTSTART;VALUE=DATE:20111230
+DTEND;VALUE=DATE:20111231
+END:VEVENT
+END:VCALENDAR`);
+
+      expect(
+        heatmap(parsed, {
+          start: D('2011-12-30T00:00:00Z'),
+          end: D('2011-12-30T00:00:00Z'),
+        }),
+      ).toEqual([{ date: '2011-12-30', count: 1 }]);
+    } finally {
+      if (previousTimeZone === undefined) delete process.env.TZ;
+      else process.env.TZ = previousTimeZone;
+    }
+  });
 });
 
 describe('heatmap (week buckets)', () => {
@@ -95,5 +147,32 @@ describe('heatmap (week buckets)', () => {
     const byDate = Object.fromEntries(buckets.map((b) => [b.date, b.count]));
     // Week of 06-15 contains timed-1, timed-2 (06-20) and the weekly meeting (06-15) = 3.
     expect(byDate['2026-06-15']).toBe(3);
+  });
+
+  it('does not count events outside a partial boundary week', () => {
+    const parsed = parseCalendar(`BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:outside-range
+SUMMARY:Outside range
+DTSTART:20260602T120000Z
+DTEND:20260602T130000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:inside-range
+SUMMARY:Inside range
+DTSTART:20260604T120000Z
+DTEND:20260604T130000Z
+END:VEVENT
+END:VCALENDAR`);
+
+    expect(
+      heatmap(parsed, {
+        start: D('2026-06-04T00:00:00Z'),
+        end: D('2026-06-04T00:00:00Z'),
+        bucket: 'week',
+        timeZone: 'UTC',
+      }),
+    ).toEqual([{ date: '2026-06-01', count: 1 }]);
   });
 });

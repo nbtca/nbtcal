@@ -18,12 +18,27 @@ function formatUTC(date: Date): string {
   );
 }
 
-function formatDate(date: Date): string {
-  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}`;
+function isUtcCivilProxy(date: Date): boolean {
+  return (
+    date.getUTCHours() === 0 &&
+    date.getUTCMinutes() === 0 &&
+    date.getUTCSeconds() === 0 &&
+    date.getUTCMilliseconds() === 0
+  );
 }
 
-function nextCivilDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+function formatDate(date: Date, utcCivil: boolean): string {
+  const year = utcCivil ? date.getUTCFullYear() : date.getFullYear();
+  const month = (utcCivil ? date.getUTCMonth() : date.getMonth()) + 1;
+  const day = utcCivil ? date.getUTCDate() : date.getDate();
+  return `${year}${pad(month)}${pad(day)}`;
+}
+
+function nextCivilDay(date: Date, utcCivil: boolean): Date {
+  const out = new Date(date);
+  if (utcCivil) out.setUTCDate(out.getUTCDate() + 1);
+  else out.setDate(out.getDate() + 1);
+  return out;
 }
 
 /** RFC 5545 §3.3.11 text escaping. */
@@ -82,9 +97,12 @@ export function eventToICS(event: CalendarEvent, options: EventToICSOptions = {}
   ];
 
   if (event.isAllDay) {
-    lines.push(`DTSTART;VALUE=DATE:${formatDate(event.start)}`);
-    const end = event.end ?? nextCivilDay(event.start);
-    lines.push(`DTEND;VALUE=DATE:${formatDate(end)}`);
+    // Query APIs use UTC midnight as a host-independent civil-date proxy. Keep
+    // accepting caller-created local-midnight values for backwards compatibility.
+    const utcCivil = isUtcCivilProxy(event.start);
+    lines.push(`DTSTART;VALUE=DATE:${formatDate(event.start, utcCivil)}`);
+    const end = event.end ?? nextCivilDay(event.start, utcCivil);
+    lines.push(`DTEND;VALUE=DATE:${formatDate(end, isUtcCivilProxy(end))}`);
   } else {
     lines.push(`DTSTART:${formatUTC(event.start)}`);
     if (event.end) lines.push(`DTEND:${formatUTC(event.end)}`);

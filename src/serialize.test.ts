@@ -75,6 +75,79 @@ describe('eventToICS', () => {
     }
   });
 
+  it('preserves a local-midnight all-day date in a positive-offset time zone', () => {
+    const previousTimeZone = process.env.TZ;
+    process.env.TZ = 'Asia/Singapore';
+    try {
+      const allDay: CalendarEvent = {
+        ...base,
+        isAllDay: true,
+        start: new Date(2026, 0, 1),
+        end: new Date(2026, 0, 2),
+      };
+
+      const ics = eventToICS(allDay, { now });
+      expect(ics).toContain('DTSTART;VALUE=DATE:20260101');
+      expect(ics).toContain('DTEND;VALUE=DATE:20260102');
+    } finally {
+      if (previousTimeZone === undefined) delete process.env.TZ;
+      else process.env.TZ = previousTimeZone;
+    }
+  });
+
+  it('serializes explicit mixed-provenance all-day boundaries independently', () => {
+    const previousTimeZone = process.env.TZ;
+    process.env.TZ = 'Asia/Singapore';
+    try {
+      const allDay: CalendarEvent = {
+        ...base,
+        isAllDay: true,
+        start: new Date(2026, 0, 1),
+        end: new Date(Date.UTC(2026, 0, 3)),
+      };
+
+      const ics = eventToICS(allDay, { now });
+      expect(ics).toContain('DTSTART;VALUE=DATE:20260101');
+      expect(ics).toContain('DTEND;VALUE=DATE:20260103');
+    } finally {
+      if (previousTimeZone === undefined) delete process.env.TZ;
+      else process.env.TZ = previousTimeZone;
+    }
+  });
+
+  it('round-trips a parsed all-day civil date in a negative host time zone', () => {
+    const previousTimeZone = process.env.TZ;
+    process.env.TZ = 'America/Los_Angeles';
+    try {
+      const parsed = parseCalendar(`BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:round-trip-all-day
+DTSTART;VALUE=DATE:20260325
+DTEND;VALUE=DATE:20260326
+END:VEVENT
+END:VCALENDAR`);
+      const [event] = parsed.vevents;
+      if (!event) throw new Error('expected parsed event');
+      const calendarEvent: CalendarEvent = {
+        ...base,
+        uid: event.uid,
+        isAllDay: true,
+        start: new Date(
+          Date.UTC(event.startDate.year!, event.startDate.month! - 1, event.startDate.day),
+        ),
+        end: new Date(Date.UTC(event.endDate.year!, event.endDate.month! - 1, event.endDate.day)),
+      };
+
+      const ics = eventToICS(calendarEvent, { now });
+      expect(ics).toContain('DTSTART;VALUE=DATE:20260325');
+      expect(ics).toContain('DTEND;VALUE=DATE:20260326');
+    } finally {
+      if (previousTimeZone === undefined) delete process.env.TZ;
+      else process.env.TZ = previousTimeZone;
+    }
+  });
+
   it('escapes commas, semicolons, backslashes, and newlines in text', () => {
     const ics = eventToICS({ ...base, title: 'A, B; C\\D', description: 'line1\nline2' }, { now });
     expect(ics).toContain('SUMMARY:A\\, B\\; C\\\\D');
