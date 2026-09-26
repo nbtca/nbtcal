@@ -100,8 +100,6 @@ function insertRankedOccurrence(
 
 function modifiesFuture(event: ParsedCalendarEvent): boolean {
   const method = (event as ParsedCalendarEvent & { modifiesFuture?: () => boolean }).modifiesFuture;
-  // ParsedCalendarEvent is public and intentionally exposes only the methods
-  // query needs. Unknown implementations take the conservative expansion path.
   return typeof method !== 'function' || method.call(event);
 }
 
@@ -292,8 +290,9 @@ interface OffsetBounds {
   readonly minimum: number;
 }
 
-const ICAL_MINIMUM_UTC_OFFSET_SECONDS = -12 * 60 * 60;
-const ICAL_MAXIMUM_UTC_OFFSET_SECONDS = 14 * 60 * 60;
+const ICAL_OFFSET_BOUNDS: OffsetBounds = { maximum: 14 * 60 * 60, minimum: -12 * 60 * 60 };
+const ICAL_MAXIMUM_RANGE_SHIFT_MS =
+  (ICAL_OFFSET_BOUNDS.maximum - ICAL_OFFSET_BOUNDS.minimum) * 2 * 1_000;
 
 function utcOffsetSeconds(value: unknown): number | null {
   if (!isRecord(value)) return null;
@@ -308,15 +307,8 @@ function offsetBounds(time: ParsedCalendarTime): OffsetBounds {
   if (candidate.zone === ICAL.Timezone.utcTimezone) {
     return { maximum: 0, minimum: 0 };
   }
-  if (candidate.zone === ICAL.Timezone.localTimezone) {
-    // Floating times are converted through the host's local Date rules by
-    // ical.js, so their effective offset can change even though utcOffset()
-    // reports zero.
-    return {
-      maximum: ICAL_MAXIMUM_UTC_OFFSET_SECONDS,
-      minimum: ICAL_MINIMUM_UTC_OFFSET_SECONDS,
-    };
-  }
+  // Floating times convert through host Date rules even though utcOffset() reports zero.
+  if (candidate.zone === ICAL.Timezone.localTimezone) return ICAL_OFFSET_BOUNDS;
 
   const offsets: number[] = [];
   const current = typeof candidate.utcOffset === 'function' ? candidate.utcOffset() : null;
@@ -330,15 +322,7 @@ function offsetBounds(time: ParsedCalendarTime): OffsetBounds {
       }
     }
   }
-  if (offsets.length === 0) {
-    // ical.js normalizes every UtcOffset into the real-world -12:00..+14:00
-    // range. This remains safe for an opaque timezone implementation while
-    // avoiding any assumption about a particular DST rule.
-    return {
-      maximum: ICAL_MAXIMUM_UTC_OFFSET_SECONDS,
-      minimum: ICAL_MINIMUM_UTC_OFFSET_SECONDS,
-    };
-  }
+  if (offsets.length === 0) return ICAL_OFFSET_BOUNDS;
   return { maximum: Math.max(...offsets), minimum: Math.min(...offsets) };
 }
 
@@ -352,7 +336,7 @@ function rangeBackwardShiftAllowance(
     recurrenceZone === ICAL.Timezone.localTimezone ||
     actualZone === ICAL.Timezone.localTimezone
   ) {
-    return (ICAL_MAXIMUM_UTC_OFFSET_SECONDS - ICAL_MINIMUM_UTC_OFFSET_SECONDS) * 2 * 1_000;
+    return ICAL_MAXIMUM_RANGE_SHIFT_MS;
   }
   const recurrenceBounds = offsetBounds(recurrencePrototype);
   const actualBounds = offsetBounds(exception.startDate);
@@ -364,13 +348,8 @@ function rangeBackwardShiftAllowance(
     typeof actualOffset !== 'number' ||
     !Number.isFinite(actualOffset)
   ) {
-    return (ICAL_MAXIMUM_UTC_OFFSET_SECONDS - ICAL_MINIMUM_UTC_OFFSET_SECONDS) * 2 * 1_000;
+    return ICAL_MAXIMUM_RANGE_SHIFT_MS;
   }
-
-  // For a RANGE exception ical.js applies one fixed civil-time duration. The
-  // only variation in its epoch shift is therefore the recurrence and target
-  // zones' UTC offsets. Bound the largest future backwards movement using all
-  // offsets declared by both VTIMEZONEs.
   return Math.max(
     0,
     (recurrenceOffset - recurrenceBounds.minimum + actualBounds.maximum - actualOffset) * 1_000,
@@ -387,10 +366,6 @@ function expandLimitedFixedInterval(
 ): CalendarEvent[] | null {
   const candidates: RankedOccurrence[] = [];
   const replacedIndices = new Set<number>();
-
-  // Direct exceptions are complete candidates in their own right. Preselecting
-  // them avoids walking a high-frequency rule all the way to a far recurrence
-  // id merely to discover that it was moved into the query window.
   for (const exception of exceptions) {
     const recurrenceIndex = fixedIntervalRecurrenceIndex(descriptor, exception.recurrenceId);
     if (typeof recurrenceIndex !== 'number') return null;
@@ -494,10 +469,7 @@ function expand(
     );
     if (fixedOccurrences) return fixedOccurrences;
   }
-  // NOTE: Do NOT pass a start Time to event.iterator() — ical.js uses the
-  // seed time's date components verbatim, which resets the time-of-day on
-  // UTC events (e.g. 12:00Z becomes 00:00Z). The conservative fallback must
-  // iterate from the beginning and filter in JavaScript instead.
+  // Seeding iterator() with a start time resets UTC times of day (12:00Z becomes 00:00Z).
   const iterator = event.iterator();
   const cancelledRecurrences = new Set(
     effectiveExceptions
@@ -521,9 +493,6 @@ function expand(
       (latest, occurrence) => Math.max(latest, occurrence.start.getTime()),
       Number.NEGATIVE_INFINITY,
     );
-    // Recurrence exceptions can move a later recurrence backwards. Once even
-    // the largest known backwards shift cannot beat the current selection,
-    // later recurrence ids cannot change the first `limit` actual starts.
     return recurrenceStart - backwardShift >= latestSelectedStart;
   };
   let next: ParsedCalendarTime | null;
@@ -658,10 +627,7 @@ export function heatmap(parsed: ParsedCalendar, options: HeatmapOptions): Heatma
   const firstCivilDay = civilProxy(options.start, timeZone);
   const lastCivilDay = civilProxy(options.end, timeZone);
 
-  // Pad the query two days each side so events whose civil date (in the target
-  // zone) lands on a boundary day are captured regardless of the zone's UTC
-  // offset. Events outside the dense range produce keys that are never emitted,
-  // so they are harmlessly ignored.
+  // Two days of padding covers any UTC offset; the civil-day filter below drops the excess.
   const events = occurrencesInRange(
     parsed,
     new Date(options.start.getTime() - 2 * DAY_MS),

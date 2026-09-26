@@ -3,7 +3,6 @@ import { FeedParseError } from './types.js';
 
 export interface ParsedCalendarTime {
   readonly isDate: boolean;
-  /** Civil fields exposed by ical.js Time. Optional for compatible adapters. */
   readonly year?: number;
   readonly month?: number;
   readonly day?: number;
