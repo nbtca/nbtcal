@@ -38,7 +38,7 @@ try {
     join(temporaryDirectory, 'smoke.mjs'),
     [
       "import { FeedFetchError, FeedParseError, currentAcademicWindow, eventToICS, findBreakEvents, inferWeekOneMonday, isAcademicBreakEvent, loadCalendar } from '@nbtca/nbtcal';",
-      "import { TimetableError, campusWeekday, createNbtTimetableClient, createTimetableSchedule, findAcademicTerm, parseWeekExpression, timetableToIcs } from '@nbtca/nbtcal/timetable';",
+      "import { TimetableError, campusDateTime, campusIsoDate, campusWeekday, createNbtTimetableClient, createTimetableSchedule, findAcademicTerm, parseWeekExpression, timetableToIcs } from '@nbtca/nbtcal/timetable';",
       '',
       'const assert = (condition, message) => { if (!condition) throw new TypeError(message); };',
       "const calendarSource = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:VEVENT', 'UID:semester-start', 'SUMMARY:[NBT] 秋季学期开始上课', 'DTSTART;VALUE=DATE:20260907', 'DTEND;VALUE=DATE:20260908', 'END:VEVENT', 'END:VCALENDAR'].join('\\r\\n');",
@@ -69,6 +69,8 @@ try {
       "assert(findAcademicTerm(terms)?.semester === '3', 'timetable client or findAcademicTerm failed');",
       "assert(new TimetableError('SESSION_EXPIRED', 'expired').code === 'SESSION_EXPIRED', 'invalid TimetableError export');",
       "assert(campusWeekday(new Date('2026-09-06T16:00:00Z')) === 1, 'invalid campus weekday');",
+      "assert(campusIsoDate(new Date('2026-09-06T16:00:00Z')) === '2026-09-07', 'invalid campus date');",
+      "assert(campusDateTime('2026-09-07', '08:00').toISOString() === '2026-09-07T00:00:00.000Z', 'invalid campus time');",
       "assert(parseWeekExpression('1-2周').join(',') === '1,2', 'invalid week parser');",
       "const timetable = { term: { academicYear: '2026', semester: '3' }, meetings: [{ sourceId: 'class-a', courseName: 'Algorithms', teacherNames: ['Teacher'], location: 'A101', weekday: 1, startPeriod: 1, endPeriod: 1, weeks: [1], kind: 'regular' }], untimedCourses: [], unresolvedItems: [], periods: [{ period: 1, label: 'First', start: '08:00', end: '08:45' }], calendarDays: [], warnings: [], fetchedAt: new Date('2026-08-01T00:00:00Z') };",
       "const schedule = createTimetableSchedule(timetable, { weekOneMonday: '2026-09-07' });",

@@ -69,6 +69,10 @@ credentials or a cookie jar. If JWXT omits authoritative calendar dates,
 `weekOneMonday` is required. Malformed rows produce structured warnings, and
 unresolved practice rows retain only allowlisted, identity-free fields.
 
+Schedules run on campus time (Asia/Shanghai) whatever the host zone.
+`campusIsoDate(date)`, `campusDateTime('2026-09-07', '08:00')` and
+`campusWeekday(date)` convert between instants and campus dates.
+
 ## Quality checks
 
 ```bash
