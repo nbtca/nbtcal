@@ -114,6 +114,9 @@ interface IcalComponentLike extends ParsedCalendarComponent {
 }
 
 interface IcalTimeLike extends ParsedCalendarTime {
+  readonly hour?: number;
+  readonly minute?: number;
+  readonly second?: number;
   readonly zone?: IcalTimezoneLike;
   utcOffset?(): number;
 }
@@ -131,10 +134,12 @@ interface FixedIntervalRuleLike {
 }
 
 interface FixedIntervalDescriptor {
+  readonly arithmetic: boolean;
   readonly duration: number;
   readonly lastIndex: number;
   readonly start: number;
   readonly step: number;
+  readonly utc: boolean;
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -156,18 +161,16 @@ interface FixedIntervalStep {
   readonly milliseconds: number;
 }
 
-function fixedIntervalRuleStep(
-  rule: FixedIntervalRuleLike,
-  allowDailyMembership: boolean,
-): FixedIntervalStep | null {
-  const units: Readonly<Record<string, number>> = {
-    SECONDLY: 1_000,
-    MINUTELY: 60_000,
-    HOURLY: 3_600_000,
-    ...(allowDailyMembership ? { DAILY: 86_400_000 } : {}),
-  };
+const FIXED_INTERVAL_UNITS: Readonly<Record<string, number>> = {
+  SECONDLY: 1_000,
+  MINUTELY: 60_000,
+  HOURLY: 3_600_000,
+  DAILY: 86_400_000,
+};
+
+function fixedIntervalRuleStep(rule: FixedIntervalRuleLike): FixedIntervalStep | null {
   if (typeof rule.freq !== 'string') return null;
-  const unit = units[rule.freq];
+  const unit = FIXED_INTERVAL_UNITS[rule.freq];
   if (unit === undefined) return null;
   if (!Number.isSafeInteger(rule.interval) || (rule.interval as number) < 1) return null;
   if (!isRecord(rule.parts) || Object.keys(rule.parts).length > 0) return null;
@@ -177,11 +180,36 @@ function fixedIntervalRuleStep(
     : null;
 }
 
-function fixedIntervalDescriptor(
-  event: ParsedCalendarEvent,
-  allowDailyMembership = false,
-): FixedIntervalDescriptor | null {
-  if (!isUtcDateTime(event.startDate) || !isUtcDateTime(event.endDate)) return null;
+function civilTimestamp(time: IcalTimeLike): number | null {
+  const { year, month, day, hour, minute, second } = time;
+  if (
+    time.isDate ||
+    year === undefined ||
+    month === undefined ||
+    day === undefined ||
+    hour === undefined ||
+    minute === undefined ||
+    second === undefined
+  ) {
+    return null;
+  }
+  const value = new Date(0);
+  value.setUTCFullYear(year, month - 1, day);
+  value.setUTCHours(hour, minute, second);
+  return value.getUTCFullYear() === year &&
+    value.getUTCMonth() + 1 === month &&
+    value.getUTCDate() === day &&
+    value.getUTCHours() === hour &&
+    value.getUTCMinutes() === minute &&
+    value.getUTCSeconds() === second
+    ? value.getTime()
+    : null;
+}
+
+function fixedIntervalDescriptor(event: ParsedCalendarEvent): FixedIntervalDescriptor | null {
+  const utc = isUtcDateTime(event.startDate) && isUtcDateTime(event.endDate);
+  const civilStart = utc ? null : civilTimestamp(event.startDate);
+  if (!utc && civilStart === null) return null;
   const component = event.component as Partial<IcalComponentLike>;
   if (typeof component.getAllProperties !== 'function') return null;
   const rules = component.getAllProperties('rrule');
@@ -197,12 +225,23 @@ function fixedIntervalDescriptor(
   if (!isRecord(ruleProperty) || typeof ruleProperty.getFirstValue !== 'function') return null;
   const rule = ruleProperty.getFirstValue();
   if (!isRecord(rule)) return null;
-  const interval = fixedIntervalRuleStep(rule, allowDailyMembership);
-  if (interval === null || (!allowDailyMembership && !interval.arithmetic)) return null;
+  const interval = fixedIntervalRuleStep(rule);
+  if (interval === null) return null;
   const step = interval.milliseconds;
 
   const count = rule.count;
   if (count !== null && (!Number.isSafeInteger(count) || (count as number) < 1)) return null;
+  if (civilStart !== null) {
+    // ical.js skips nonexistent local times, so COUNT and UNTIL cannot bound civil indices.
+    return {
+      arithmetic: false,
+      duration: 0,
+      lastIndex: Number.POSITIVE_INFINITY,
+      start: civilStart,
+      step,
+      utc: false,
+    };
+  }
   const until = rule.until;
   if (until !== null && !isUtcDateTime(until)) return null;
   const start = event.startDate.toJSDate().getTime();
@@ -225,34 +264,23 @@ function fixedIntervalDescriptor(
     if (!Number.isSafeInteger(untilDelta)) return null;
     lastIndex = Math.min(lastIndex, Math.floor(untilDelta / step));
   }
-  return { duration, lastIndex, start, step };
+  return { arithmetic: interval.arithmetic, duration, lastIndex, start, step, utc: true };
 }
 
 function fixedIntervalRecurrenceIndex(
   descriptor: FixedIntervalDescriptor,
   recurrenceId: ParsedCalendarTime,
-): number | null {
-  if (!isUtcDateTime(recurrenceId)) return null;
-  const recurrenceStart = recurrenceId.toJSDate().getTime();
+): number | null | undefined {
+  const utc = isUtcDateTime(recurrenceId);
+  if (descriptor.utc ? !utc : recurrenceId.isDate) return null;
+  if (utc !== descriptor.utc) return undefined;
+  const recurrenceStart = utc ? recurrenceId.toJSDate().getTime() : civilTimestamp(recurrenceId);
+  if (recurrenceStart === null) return undefined;
   const delta = recurrenceStart - descriptor.start;
   if (!Number.isSafeInteger(recurrenceStart) || !Number.isSafeInteger(delta)) return null;
   if (delta < 0 || delta % descriptor.step !== 0) return null;
   const index = delta / descriptor.step;
   return Number.isSafeInteger(index) && index <= descriptor.lastIndex ? index : null;
-}
-
-function validFixedIntervalExceptions(
-  descriptor: FixedIntervalDescriptor,
-  exceptions: readonly ParsedCalendarEvent[],
-): readonly ParsedCalendarEvent[] | null {
-  if (exceptions.some(modifiesFuture)) return null;
-  // With the recurrence set proven arithmetically, a direct exception whose
-  // RECURRENCE-ID is not a member is an orphan. ical.js never visits it during
-  // normal expansion, so ignoring it preserves that behavior without letting
-  // an attacker force a scan to an arbitrary remote id.
-  return exceptions.filter(
-    (exception) => fixedIntervalRecurrenceIndex(descriptor, exception.recurrenceId) !== null,
-  );
 }
 
 function fixedTime(timestamp: number): ParsedCalendarTime {
@@ -365,7 +393,7 @@ function expandLimitedFixedInterval(
   // id merely to discover that it was moved into the query window.
   for (const exception of exceptions) {
     const recurrenceIndex = fixedIntervalRecurrenceIndex(descriptor, exception.recurrenceId);
-    if (recurrenceIndex === null) return null;
+    if (typeof recurrenceIndex !== 'number') return null;
     const recurrenceStart = exception.recurrenceId.toJSDate().getTime();
     replacedIndices.add(recurrenceIndex);
     if (isCancelled(exception)) continue;
@@ -444,27 +472,28 @@ function expand(
   const out: CalendarEvent[] = [];
   const exceptions = Object.values(event.exceptions);
   const finiteLimit = Number.isFinite(limit);
-  const descriptor = finiteLimit ? fixedIntervalDescriptor(event) : null;
-  const fixedExceptions = descriptor ? validFixedIntervalExceptions(descriptor, exceptions) : null;
-  if (descriptor && fixedExceptions) {
+  const descriptor = fixedIntervalDescriptor(event);
+  const effectiveExceptions = descriptor
+    ? exceptions.filter(
+        (exception) =>
+          modifiesFuture(exception) ||
+          // Cancellations below match by instant, not by the ical.js recurrence key.
+          (!descriptor.utc && isCancelled(exception)) ||
+          fixedIntervalRecurrenceIndex(descriptor, exception.recurrenceId) !== null,
+      )
+    : exceptions;
+  const hasRangeException = effectiveExceptions.some(modifiesFuture);
+  if (finiteLimit && descriptor?.arithmetic && !hasRangeException) {
     const fixedOccurrences = expandLimitedFixedInterval(
       event,
       start,
       end,
       limit,
-      fixedExceptions,
+      effectiveExceptions,
       descriptor,
     );
     if (fixedOccurrences) return fixedOccurrences;
   }
-  const membershipDescriptor = fixedIntervalDescriptor(event, true);
-  const effectiveExceptions = membershipDescriptor
-    ? exceptions.filter(
-        (exception) =>
-          modifiesFuture(exception) ||
-          fixedIntervalRecurrenceIndex(membershipDescriptor, exception.recurrenceId) !== null,
-      )
-    : exceptions;
   // NOTE: Do NOT pass a start Time to event.iterator() — ical.js uses the
   // seed time's date components verbatim, which resets the time-of-day on
   // UTC events (e.g. 12:00Z becomes 00:00Z). The conservative fallback must
@@ -475,7 +504,6 @@ function expand(
       .filter(isCancelled)
       .map((exception) => calendarTimeToDate(exception.recurrenceId).getTime()),
   );
-  const hasRangeException = effectiveExceptions.some(modifiesFuture);
   const backwardShift = effectiveExceptions.reduce((largest, exception) => {
     if (isCancelled(exception)) return largest;
     const anchorShift =
@@ -488,7 +516,7 @@ function expand(
   }, 0);
   const recurrenceEnd = end.getTime() + backwardShift;
   const selectionBoundaryReached = (recurrenceStart: number): boolean => {
-    if (hasRangeException || !finiteLimit || out.length < limit) return false;
+    if (!finiteLimit || out.length < limit) return false;
     const latestSelectedStart = out.reduce(
       (latest, occurrence) => Math.max(latest, occurrence.start.getTime()),
       Number.NEGATIVE_INFINITY,
