@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { eventToICS } from './serialize.js';
 import { parseCalendar } from './parse.js';
+import { occurrencesInRange } from './query.js';
 import type { CalendarEvent } from './types.js';
 
 const base: CalendarEvent = {
@@ -127,19 +128,10 @@ DTSTART;VALUE=DATE:20260325
 DTEND;VALUE=DATE:20260326
 END:VEVENT
 END:VCALENDAR`);
-      const [event] = parsed.vevents;
-      if (!event) throw new Error('expected parsed event');
-      const calendarEvent: CalendarEvent = {
-        ...base,
-        uid: event.uid,
-        isAllDay: true,
-        start: new Date(
-          Date.UTC(event.startDate.year!, event.startDate.month! - 1, event.startDate.day),
-        ),
-        end: new Date(Date.UTC(event.endDate.year!, event.endDate.month! - 1, event.endDate.day)),
-      };
+      const [event] = occurrencesInRange(parsed, new Date(2026, 2, 1), new Date(2026, 3, 1));
+      if (!event) throw new Error('expected an occurrence');
 
-      const ics = eventToICS(calendarEvent, { now });
+      const ics = eventToICS(event, { now });
       expect(ics).toContain('DTSTART;VALUE=DATE:20260325');
       expect(ics).toContain('DTEND;VALUE=DATE:20260326');
     } finally {
