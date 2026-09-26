@@ -138,7 +138,7 @@ describe('parseTimetablePayload', () => {
         },
         { academicYear: '2026', semester: '3' },
       ),
-    ).toThrowError(expect.objectContaining({ code: 'TERM_MISMATCH' }));
+    ).toThrow(expect.objectContaining({ code: 'TERM_MISMATCH' }));
   });
 
   it('fails closed when the response does not confirm its term', () => {
@@ -150,11 +150,11 @@ describe('parseTimetablePayload', () => {
           semester: '3',
         },
       ),
-    ).toThrowError(expect.objectContaining({ code: 'TERM_MISMATCH' }));
+    ).toThrow(expect.objectContaining({ code: 'TERM_MISMATCH' }));
   });
 
   it('rejects non-timetable JSON', () => {
-    expect(() => parseTimetablePayload('{}', { academicYear: '2026', semester: '3' })).toThrowError(
+    expect(() => parseTimetablePayload('{}', { academicYear: '2026', semester: '3' })).toThrow(
       expect.objectContaining({ code: 'INVALID_TIMETABLE' }),
     );
   });

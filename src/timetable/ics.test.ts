@@ -125,7 +125,7 @@ describe('timetableToIcs', () => {
       timetableToIcs(fixture(), {
         generatedAt: new Date('2026-08-01T00:00:00Z'),
       }),
-    ).toThrowError(expect.objectContaining({ code: 'MISSING_CALENDAR_DATES' }));
+    ).toThrow(expect.objectContaining({ code: 'MISSING_CALENDAR_DATES' }));
 
     const timetable = fixture();
     timetable.periods = [];
@@ -134,13 +134,13 @@ describe('timetableToIcs', () => {
         weekOneMonday: '2026-09-07',
         generatedAt: new Date('2026-08-01T00:00:00Z'),
       }),
-    ).toThrowError(expect.objectContaining({ code: 'MISSING_PERIOD_TIME' }));
+    ).toThrow(expect.objectContaining({ code: 'MISSING_PERIOD_TIME' }));
 
     expect(() =>
       timetableToIcs(fixture(), {
         weekOneMonday: '2026-09-08',
       }),
-    ).toThrowError(expect.objectContaining({ code: 'MISSING_CALENDAR_DATES' }));
+    ).toThrow(expect.objectContaining({ code: 'MISSING_CALENDAR_DATES' }));
 
     expect(() =>
       timetableToIcs(fixture(), {
@@ -154,7 +154,7 @@ describe('timetableToIcs', () => {
         weekOneMonday: '2026-09-07',
         periodTimes: { 1: { start: '09:00', end: '08:00' } },
       }),
-    ).toThrowError(expect.objectContaining({ code: 'MISSING_PERIOD_TIME' }));
+    ).toThrow(expect.objectContaining({ code: 'MISSING_PERIOD_TIME' }));
   });
 
   it('rejects malformed period override keys', () => {
