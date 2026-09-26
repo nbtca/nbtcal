@@ -3,6 +3,7 @@ import type {
   ParsedCalendar,
   ParsedCalendarComponent,
   ParsedCalendarEvent,
+  ParsedCalendarIterator,
   ParsedCalendarTime,
 } from './parse.js';
 import type {
@@ -135,6 +136,7 @@ interface FixedIntervalDescriptor {
   readonly arithmetic: boolean;
   readonly duration: number;
   readonly lastIndex: number;
+  readonly rule: FixedIntervalRuleLike;
   readonly start: number;
   readonly step: number;
   readonly utc: boolean;
@@ -235,6 +237,7 @@ function fixedIntervalDescriptor(event: ParsedCalendarEvent): FixedIntervalDescr
       arithmetic: false,
       duration: 0,
       lastIndex: Number.POSITIVE_INFINITY,
+      rule,
       start: civilStart,
       step,
       utc: false,
@@ -262,7 +265,7 @@ function fixedIntervalDescriptor(event: ParsedCalendarEvent): FixedIntervalDescr
     if (!Number.isSafeInteger(untilDelta)) return null;
     lastIndex = Math.min(lastIndex, Math.floor(untilDelta / step));
   }
-  return { arithmetic: interval.arithmetic, duration, lastIndex, start, step, utc: true };
+  return { arithmetic: interval.arithmetic, duration, lastIndex, rule, start, step, utc: true };
 }
 
 function fixedIntervalRecurrenceIndex(
@@ -326,17 +329,26 @@ function offsetBounds(time: ParsedCalendarTime): OffsetBounds {
   return { maximum: Math.max(...offsets), minimum: Math.min(...offsets) };
 }
 
-function rangeBackwardShiftAllowance(
+interface ShiftAllowance {
+  readonly backward: number;
+  readonly forward: number;
+}
+
+function rangeShiftAllowance(
   recurrencePrototype: ParsedCalendarTime,
   exception: ParsedCalendarEvent,
-): number {
+): ShiftAllowance {
+  const conservative = {
+    backward: ICAL_MAXIMUM_RANGE_SHIFT_MS,
+    forward: ICAL_MAXIMUM_RANGE_SHIFT_MS,
+  };
   const recurrenceZone = (recurrencePrototype as IcalTimeLike).zone;
   const actualZone = (exception.startDate as IcalTimeLike).zone;
   if (
     recurrenceZone === ICAL.Timezone.localTimezone ||
     actualZone === ICAL.Timezone.localTimezone
   ) {
-    return ICAL_MAXIMUM_RANGE_SHIFT_MS;
+    return conservative;
   }
   const recurrenceBounds = offsetBounds(recurrencePrototype);
   const actualBounds = offsetBounds(exception.startDate);
@@ -348,12 +360,47 @@ function rangeBackwardShiftAllowance(
     typeof actualOffset !== 'number' ||
     !Number.isFinite(actualOffset)
   ) {
-    return ICAL_MAXIMUM_RANGE_SHIFT_MS;
+    return conservative;
   }
-  return Math.max(
-    0,
-    (recurrenceOffset - recurrenceBounds.minimum + actualBounds.maximum - actualOffset) * 1_000,
-  );
+  return {
+    backward: Math.max(
+      0,
+      (recurrenceOffset - recurrenceBounds.minimum + actualBounds.maximum - actualOffset) * 1_000,
+    ),
+    forward: Math.max(
+      0,
+      (actualOffset - actualBounds.minimum + recurrenceBounds.maximum - recurrenceOffset) * 1_000,
+    ),
+  };
+}
+
+function historySkippingIterator(
+  event: ParsedCalendarEvent,
+  descriptor: FixedIntervalDescriptor,
+  skipBefore: number,
+): ParsedCalendarIterator | null {
+  const { rule } = descriptor;
+  const startDate = event.startDate;
+  if (!(rule instanceof ICAL.Recur) || !(startDate instanceof ICAL.Time)) return null;
+  // ical.js counts a DST-gap time it drops as a duplicate toward COUNT.
+  if (rule.count && !descriptor.utc && startDate.zone !== ICAL.Timezone.localTimezone) return null;
+  const until = rule.until ? rule.until.toUnixTime() * 1_000 : Number.POSITIVE_INFINITY;
+  const latest = Math.min(skipBefore - 1, until) + offsetBounds(startDate).minimum * 1_000;
+  const lastIndex = Math.floor((latest - descriptor.start) / descriptor.step);
+  if (!Number.isSafeInteger(lastIndex) || lastIndex < 1) return null;
+  const last = startDate.clone().adjust(0, 0, 0, (lastIndex * descriptor.step) / 1_000);
+  // ical.js drops local times that a DST gap maps before DTSTART; never resume from one.
+  if (last.compare(startDate) < 0) return null;
+  const iterator = rule.iterator(startDate);
+  iterator.last = last;
+  iterator.occurrence_number = lastIndex + 1;
+  return {
+    next: () => {
+      // ical.js types omit the null that ends iteration.
+      const next = iterator.next() as InstanceType<typeof ICAL.Time> | null;
+      return next?.clone() ?? null;
+    },
+  };
 }
 
 function expandLimitedFixedInterval(
@@ -469,23 +516,27 @@ function expand(
     );
     if (fixedOccurrences) return fixedOccurrences;
   }
-  // Seeding iterator() with a start time resets UTC times of day (12:00Z becomes 00:00Z).
-  const iterator = event.iterator();
   const cancelledRecurrences = new Set(
     effectiveExceptions
       .filter(isCancelled)
       .map((exception) => calendarTimeToDate(exception.recurrenceId).getTime()),
   );
-  const backwardShift = effectiveExceptions.reduce((largest, exception) => {
-    if (isCancelled(exception)) return largest;
+  let backwardShift = 0;
+  let forwardShift = 0;
+  for (const exception of effectiveExceptions) {
+    if (isCancelled(exception)) continue;
     const anchorShift =
       calendarTimeToDate(exception.recurrenceId).getTime() -
       calendarTimeToDate(exception.startDate).getTime();
-    const safeShift = modifiesFuture(exception)
-      ? anchorShift + rangeBackwardShiftAllowance(event.startDate, exception)
-      : anchorShift;
-    return Math.max(largest, safeShift);
-  }, 0);
+    const allowance = modifiesFuture(exception)
+      ? rangeShiftAllowance(event.startDate, exception)
+      : { backward: 0, forward: 0 };
+    backwardShift = Math.max(backwardShift, anchorShift + allowance.backward);
+    forwardShift = Math.max(forwardShift, allowance.forward - anchorShift);
+  }
+  const iterator =
+    (descriptor && historySkippingIterator(event, descriptor, start.getTime() - forwardShift)) ??
+    event.iterator();
   const recurrenceEnd = end.getTime() + backwardShift;
   const selectionBoundaryReached = (recurrenceStart: number): boolean => {
     if (!finiteLimit || out.length < limit) return false;

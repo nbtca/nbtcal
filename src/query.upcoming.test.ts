@@ -1,3 +1,4 @@
+import ICAL from 'ical.js';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { parseCalendar } from './parse.js';
 import { occurrencesInRange, upcoming, next } from './query.js';
@@ -404,6 +405,39 @@ DTEND;TZID=Asia/Shanghai:20260601T080040
 END:VEVENT
 END:VCALENDAR`;
 
+const ZONED_RANGE_MINUTELY_HISTORY_ICS = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VTIMEZONE
+TZID:America/New_York
+BEGIN:DAYLIGHT
+DTSTART:19700308T020000
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:19701101T020000
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:zoned-range-minutely-history
+SUMMARY:Every minute
+DTSTART;TZID=America/New_York:20260501T090000
+DTEND;TZID=America/New_York:20260501T090030
+RRULE:FREQ=MINUTELY
+END:VEVENT
+BEGIN:VEVENT
+UID:zoned-range-minutely-history
+RECURRENCE-ID;RANGE=THISANDFUTURE;TZID=America/New_York:20260501T090000
+SUMMARY:Shifted every minute
+DTSTART;TZID=America/New_York:20260501T090010
+DTEND;TZID=America/New_York:20260501T090040
+END:VEVENT
+END:VCALENDAR`;
+
 beforeEach(() => {
   vi.useFakeTimers();
   // Pretend "now" is just before the first weekly occurrence.
@@ -412,6 +446,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 describe('upcoming', () => {
@@ -639,6 +674,17 @@ describe('next', () => {
       '2026-06-01T00:02:10.000Z',
     ]);
     expect(nextSpy.mock.calls.length).toBeLessThan(10);
+  });
+
+  it('skips RANGE=THISANDFUTURE recurrence history before the query start', () => {
+    const nextSpy = vi.spyOn(ICAL.RecurIterator.prototype, 'next');
+    const parsed = parseCalendar(ZONED_RANGE_MINUTELY_HISTORY_ICS);
+
+    expect(next(parsed, 2).map((occurrence) => occurrence.start.toISOString())).toEqual([
+      '2026-06-01T00:00:10.000Z',
+      '2026-06-01T00:01:10.000Z',
+    ]);
+    expect(nextSpy.mock.calls.length).toBeLessThan(1_000);
   });
 
   it('stops expanding each recurrence after enough occurrences are collected', () => {
