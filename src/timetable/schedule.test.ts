@@ -119,7 +119,7 @@ describe('createTimetableSchedule', () => {
     const value = timetable();
     value.calendarDays = [{ week: 1, weekday: 1, date: '2026-09-14' }];
 
-    expect(() => createTimetableSchedule(value, { weekOneMonday: '2026-09-07' })).toThrowError(
+    expect(() => createTimetableSchedule(value, { weekOneMonday: '2026-09-07' })).toThrow(
       expect.objectContaining({ code: 'MISSING_CALENDAR_DATES' }),
     );
   });
@@ -136,10 +136,10 @@ describe('createTimetableSchedule', () => {
     schedule.occurrences().pop();
     expect(schedule.occurrences()).toHaveLength(2);
 
-    expect(() =>
-      createTimetableSchedule(timetable(), { weekOneMonday: '2026-09-08' }),
-    ).toThrowError(expect.objectContaining({ code: 'MISSING_CALENDAR_DATES' }));
-    expect(() => createTimetableSchedule(timetable()).occurrences()).toThrowError(
+    expect(() => createTimetableSchedule(timetable(), { weekOneMonday: '2026-09-08' })).toThrow(
+      expect.objectContaining({ code: 'MISSING_CALENDAR_DATES' }),
+    );
+    expect(() => createTimetableSchedule(timetable()).occurrences()).toThrow(
       expect.objectContaining({ code: 'MISSING_CALENDAR_DATES' }),
     );
 
@@ -147,7 +147,7 @@ describe('createTimetableSchedule', () => {
     missingPeriod.periods = [];
     expect(() =>
       createTimetableSchedule(missingPeriod, { weekOneMonday: '2026-09-07' }).occurrences(),
-    ).toThrowError(expect.objectContaining({ code: 'MISSING_PERIOD_TIME' }));
+    ).toThrow(expect.objectContaining({ code: 'MISSING_PERIOD_TIME' }));
   });
 
   it('does not expose mutable occurrence dates from its cache', () => {
