@@ -29,6 +29,17 @@ Recurring events are expanded within each query window. Heatmaps are dense and
 include zero-count day or week buckets. Lower-level feed, parser, query, and ICS
 functions are available from the package root.
 
+To skip downloading an unchanged feed, keep the validators from the last
+response and send them back:
+
+```ts
+import { fetchFeedConditional } from '@nbtca/nbtcal';
+
+const result = await fetchFeedConditional(undefined, { validators: saved.validators });
+const text = result.status === 'modified' ? result.text : saved.text;
+saved = { text, validators: result.validators };
+```
+
 ## Personal timetable
 
 The `@nbtca/nbtcal/timetable` subpath accepts an authenticated transport for the

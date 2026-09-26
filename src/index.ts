@@ -1,7 +1,12 @@
 export { loadCalendar, createCalendar } from './calendar.js';
 export type { Calendar, LoadCalendarOptions } from './calendar.js';
-export { fetchFeed, DEFAULT_FEED_URL } from './feed.js';
-export type { FetchFeedOptions } from './feed.js';
+export { fetchFeed, fetchFeedConditional, DEFAULT_FEED_URL } from './feed.js';
+export type {
+  FeedFetchResult,
+  FeedValidators,
+  FetchFeedConditionalOptions,
+  FetchFeedOptions,
+} from './feed.js';
 export { parseCalendar } from './parse.js';
 export type {
   ParsedCalendar,

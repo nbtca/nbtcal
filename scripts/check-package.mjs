@@ -37,7 +37,7 @@ try {
   await writeFile(
     join(temporaryDirectory, 'smoke.mjs'),
     [
-      "import { FeedFetchError, FeedParseError, currentAcademicWindow, eventToICS, findBreakEvents, inferWeekOneMonday, isAcademicBreakEvent, loadCalendar } from '@nbtca/nbtcal';",
+      "import { FeedFetchError, FeedParseError, currentAcademicWindow, eventToICS, fetchFeedConditional, findBreakEvents, inferWeekOneMonday, isAcademicBreakEvent, loadCalendar } from '@nbtca/nbtcal';",
       "import { TimetableError, campusDateTime, campusIsoDate, campusWeekday, createNbtTimetableClient, createTimetableSchedule, findAcademicTerm, parseWeekExpression, timetableToIcs } from '@nbtca/nbtcal/timetable';",
       '',
       'const assert = (condition, message) => { if (!condition) throw new TypeError(message); };',
@@ -54,6 +54,13 @@ try {
       "assert(events.length === 1, 'loadCalendar did not produce a usable Calendar');",
       "assert(eventToICS(events[0], { now: new Date('2026-08-01T00:00:00Z') }).includes('UID:semester-start'), 'eventToICS failed');",
       "assert(new FeedFetchError('fetch').name === 'FeedFetchError', 'invalid FeedFetchError export');",
+      "globalThis.fetch = async (_url, init) => new Response(null, { status: 304, headers: { ETag: new Headers(init.headers).get('if-none-match') } });",
+      'try {',
+      "  const conditional = await fetchFeedConditional('https://calendar.example/feed.ics', { validators: { etag: '\"v1\"' } });",
+      "  assert(conditional.status === 'not-modified' && conditional.validators.etag === '\"v1\"', 'fetchFeedConditional failed');",
+      '} finally {',
+      '  globalThis.fetch = originalFetch;',
+      '}',
       "assert(new FeedParseError('parse').name === 'FeedParseError', 'invalid FeedParseError export');",
       "const academicWindow = currentAcademicWindow(events, new Date('2026-09-21T00:00:00Z'));",
       "assert(academicWindow?.status === 'inTerm', 'currentAcademicWindow failed');",
@@ -81,7 +88,7 @@ try {
   await writeFile(
     join(temporaryDirectory, 'consumer.ts'),
     [
-      "import { FeedFetchError, FeedParseError, currentAcademicWindow, eventToICS, findBreakEvents, inferWeekOneMonday, isAcademicBreakEvent, loadCalendar, type AcademicWindow, type Calendar, type CalendarEvent, type EventToICSOptions, type HeatmapBucket, type LoadCalendarOptions, type OnBreak } from '@nbtca/nbtcal';",
+      "import { FeedFetchError, FeedParseError, currentAcademicWindow, eventToICS, fetchFeedConditional, findBreakEvents, inferWeekOneMonday, isAcademicBreakEvent, loadCalendar, type AcademicWindow, type Calendar, type CalendarEvent, type EventToICSOptions, type FeedFetchResult, type FeedValidators, type FetchFeedConditionalOptions, type HeatmapBucket, type LoadCalendarOptions, type OnBreak } from '@nbtca/nbtcal';",
       "import { TimetableError, campusWeekday, createNbtTimetableClient, createTimetableSchedule, findAcademicTerm, timetableToIcs, type AcademicTerm, type AuthenticatedTransport, type CreateNbtTimetableClientOptions, type NbtTimetableClient, type Timetable, type TimetableErrorCode, type TimetableMeeting, type TimetableOccurrence, type TimetablePeriod, type TimetableSchedule, type TimetableScheduleOptions, type TimetableToIcsOptions, type TimetableUntimedCourse, type TimetableUnresolvedItem, type TransportResponse, type Weekday } from '@nbtca/nbtcal/timetable';",
       '',
       "const event: CalendarEvent = { uid: 'event-a', title: '[NBT] 暑期', start: new Date(2026, 6, 1), end: new Date(2026, 6, 5), isAllDay: true, location: null, description: null, recurring: false };",
@@ -95,6 +102,9 @@ try {
       'const breakEvents: CalendarEvent[] = findBreakEvents([event]);',
       "const heatmapBucket: HeatmapBucket = { date: '2026-07-01', count: 1 };",
       "const feedErrors: readonly Error[] = [new FeedFetchError('fetch'), new FeedParseError('parse')];",
+      "const validators: FeedValidators = { etag: '\"v1\"', lastModified: 'Wed, 23 Sep 2026 10:00:00 GMT' };",
+      'const conditionalOptions: FetchFeedConditionalOptions = { validators, timeoutMs: 1000 };',
+      'const conditionalPromise: Promise<FeedFetchResult> = fetchFeedConditional(undefined, conditionalOptions);',
       '',
       "const term: AcademicTerm = { academicYear: '2026', semester: '3', academicYearLabel: '2026-2027', semesterLabel: 'First semester', current: true };",
       "const meeting: TimetableMeeting = { sourceId: 'class-a', courseName: 'Algorithms', teacherNames: ['Teacher'], location: 'A101', weekday: 1, startPeriod: 1, endPeriod: 1, weeks: [1], kind: 'regular' };",
@@ -116,7 +126,7 @@ try {
       "const timetableErrorCode: TimetableErrorCode = 'SESSION_EXPIRED';",
       "const timetableError: TimetableError = new TimetableError(timetableErrorCode, 'expired');",
       '',
-      'export const consumerContract = { academicBreak, academicWindow, breakEvents, calendarPromise, client, eventIcs, feedErrors, heatmapBucket, occurrence, selectedTerm, timetableError, timetableIcs, weekday, weekOneMonday };',
+      'export const consumerContract = { academicBreak, academicWindow, breakEvents, calendarPromise, client, conditionalPromise, eventIcs, feedErrors, heatmapBucket, occurrence, selectedTerm, timetableError, timetableIcs, weekday, weekOneMonday };',
     ].join('\n'),
   );
 
