@@ -352,6 +352,58 @@ DTEND:20260601T000002Z
 END:VEVENT
 END:VCALENDAR`;
 
+const ZONED_MISALIGNED_DAILY_EXCEPTION_ICS = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VTIMEZONE
+TZID:Asia/Shanghai
+BEGIN:STANDARD
+DTSTART:19700101T000000
+TZOFFSETFROM:+0800
+TZOFFSETTO:+0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:zoned-misaligned-daily
+SUMMARY:Daily meeting
+DTSTART;TZID=Asia/Shanghai:20260101T090000
+DTEND;TZID=Asia/Shanghai:20260101T100000
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:zoned-misaligned-daily
+RECURRENCE-ID;TZID=Asia/Shanghai:99990101T093000
+SUMMARY:Misaligned orphan
+DTSTART;TZID=Asia/Shanghai:20260601T080000
+DTEND;TZID=Asia/Shanghai:20260601T090000
+END:VEVENT
+END:VCALENDAR`;
+
+const ZONED_RANGE_MINUTELY_ICS = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VTIMEZONE
+TZID:Asia/Shanghai
+BEGIN:STANDARD
+DTSTART:19700101T000000
+TZOFFSETFROM:+0800
+TZOFFSETTO:+0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:zoned-range-minutely
+SUMMARY:Every minute
+DTSTART;TZID=Asia/Shanghai:20260601T080000
+DTEND;TZID=Asia/Shanghai:20260601T080030
+RRULE:FREQ=MINUTELY
+END:VEVENT
+BEGIN:VEVENT
+UID:zoned-range-minutely
+RECURRENCE-ID;RANGE=THISANDFUTURE;TZID=Asia/Shanghai:20260601T080000
+SUMMARY:Shifted every minute
+DTSTART;TZID=Asia/Shanghai:20260601T080010
+DTEND;TZID=Asia/Shanghai:20260601T080040
+END:VEVENT
+END:VCALENDAR`;
+
 beforeEach(() => {
   vi.useFakeTimers();
   // Pretend "now" is just before the first weekly occurrence.
@@ -555,6 +607,36 @@ describe('next', () => {
 
     expect(next(parsed, 1).map((occurrence) => occurrence.start.toISOString())).toEqual([
       '2026-06-01T00:00:00.000Z',
+    ]);
+    expect(nextSpy.mock.calls.length).toBeLessThan(10);
+  });
+
+  it('does not let a proven zoned orphan extend fallback expansion to its remote id', () => {
+    const parsed = parseCalendar(ZONED_MISALIGNED_DAILY_EXCEPTION_ICS);
+    const event = parsed.vevents[0]!;
+    const iterator = event.iterator();
+    const nextOccurrence = iterator.next.bind(iterator);
+    const nextSpy = vi.spyOn(iterator, 'next').mockImplementation(nextOccurrence);
+    vi.spyOn(event, 'iterator').mockReturnValue(iterator);
+
+    expect(next(parsed, 1).map((occurrence) => occurrence.start.toISOString())).toEqual([
+      '2026-06-01T01:00:00.000Z',
+    ]);
+    expect(nextSpy.mock.calls.length).toBeLessThan(200);
+  });
+
+  it('stops expanding a RANGE=THISANDFUTURE series once the selection is complete', () => {
+    const parsed = parseCalendar(ZONED_RANGE_MINUTELY_ICS);
+    const event = parsed.vevents[0]!;
+    const iterator = event.iterator();
+    const nextOccurrence = iterator.next.bind(iterator);
+    const nextSpy = vi.spyOn(iterator, 'next').mockImplementation(nextOccurrence);
+    vi.spyOn(event, 'iterator').mockReturnValue(iterator);
+
+    expect(next(parsed, 3).map((occurrence) => occurrence.start.toISOString())).toEqual([
+      '2026-06-01T00:00:10.000Z',
+      '2026-06-01T00:01:10.000Z',
+      '2026-06-01T00:02:10.000Z',
     ]);
     expect(nextSpy.mock.calls.length).toBeLessThan(10);
   });
