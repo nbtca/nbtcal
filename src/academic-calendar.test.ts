@@ -8,8 +8,7 @@ import {
 import type { CalendarEvent } from './types.js';
 
 function ev(title: string, start: string, end: string, isAllDay = true): CalendarEvent {
-  const date = (value: string) =>
-    isAllDay ? new Date(`${value}T00:00:00Z`) : new Date(`${value}T00:00:00`);
+  const date = (value: string) => new Date(`${value}T00:00:00`);
   return {
     uid: `${title}-${start}`,
     title,

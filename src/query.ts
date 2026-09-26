@@ -31,16 +31,11 @@ function civilDate(time: ParsedCalendarTime): Date | null {
     return null;
   }
 
-  // Date.UTC treats years 0..99 as 1900..1999. setUTCFullYear preserves the
-  // actual iCalendar civil year and also lets us reject impossible dates.
+  // new Date(y, m, d) treats years 0..99 as 1900..1999; setFullYear does not.
   const value = new Date(0);
-  value.setUTCHours(0, 0, 0, 0);
-  value.setUTCFullYear(year, month - 1, day);
-  if (
-    value.getUTCFullYear() !== year ||
-    value.getUTCMonth() + 1 !== month ||
-    value.getUTCDate() !== day
-  ) {
+  value.setFullYear(year, month - 1, day);
+  value.setHours(0, 0, 0, 0);
+  if (value.getFullYear() !== year || value.getMonth() + 1 !== month || value.getDate() !== day) {
     return null;
   }
   return value;
@@ -607,10 +602,10 @@ function civilProxy(date: Date, timeZone: string): Date {
   return new Date(Date.UTC(year, month - 1, day));
 }
 
-// DATE values have no time zone. ical.js exposes them as host-local midnight,
-// so interpreting that instant in another zone can move the calendar date.
+// All-day events start at host-local midnight; reading that instant in another
+// zone would move the calendar date.
 function allDayCivilProxy(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
 }
 
 function proxyKey(proxy: Date): string {

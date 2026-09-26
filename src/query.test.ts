@@ -205,4 +205,28 @@ describe('occurrencesInRange', () => {
       occurrencesInRange(parsed, D('2026-06-30T00:00:00Z'), D('2026-06-01T00:00:00Z')),
     ).toThrow(RangeError);
   });
+
+  it('starts an all-day event at local midnight in a negative host time zone', () => {
+    const previousTimeZone = process.env.TZ;
+    process.env.TZ = 'America/Los_Angeles';
+    try {
+      const parsed = parseCalendar(`BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:all-day-local
+SUMMARY:All Day
+DTSTART;VALUE=DATE:20261001
+DTEND;VALUE=DATE:20261002
+END:VEVENT
+END:VCALENDAR`);
+
+      const [event] = occurrencesInRange(parsed, new Date(2026, 9, 1), new Date(2026, 9, 2));
+      expect(event?.start).toEqual(new Date(2026, 9, 1));
+      expect(event?.end).toEqual(new Date(2026, 9, 2));
+      expect(occurrencesInRange(parsed, new Date(2026, 8, 30), new Date(2026, 9, 1))).toEqual([]);
+    } finally {
+      if (previousTimeZone === undefined) delete process.env.TZ;
+      else process.env.TZ = previousTimeZone;
+    }
+  });
 });

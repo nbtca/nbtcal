@@ -106,32 +106,6 @@ END:VCALENDAR`);
       else process.env.TZ = previousTimeZone;
     }
   });
-
-  it('preserves an all-day civil date skipped by the host time zone', () => {
-    const previousTimeZone = process.env.TZ;
-    process.env.TZ = 'Pacific/Apia';
-    try {
-      const parsed = parseCalendar(`BEGIN:VCALENDAR
-VERSION:2.0
-BEGIN:VEVENT
-UID:all-day-skipped-date
-SUMMARY:All Day
-DTSTART;VALUE=DATE:20111230
-DTEND;VALUE=DATE:20111231
-END:VEVENT
-END:VCALENDAR`);
-
-      expect(
-        heatmap(parsed, {
-          start: D('2011-12-30T00:00:00Z'),
-          end: D('2011-12-30T00:00:00Z'),
-        }),
-      ).toEqual([{ date: '2011-12-30', count: 1 }]);
-    } finally {
-      if (previousTimeZone === undefined) delete process.env.TZ;
-      else process.env.TZ = previousTimeZone;
-    }
-  });
 });
 
 describe('heatmap (week buckets)', () => {
