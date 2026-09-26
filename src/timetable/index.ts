@@ -5,6 +5,7 @@ export {
   parseTimetablePayload,
   parseWeekExpression,
 } from './parse.js';
+export { campusDateTime, campusIsoDate } from './date-time.js';
 export { timetableToIcs } from './ics.js';
 export { campusWeekday, createTimetableSchedule, findAcademicTerm } from './schedule.js';
 export { TimetableError } from './types.js';
