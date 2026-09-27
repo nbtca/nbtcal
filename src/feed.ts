@@ -1,6 +1,7 @@
 import { FeedFetchError } from './types.js';
 
 export const DEFAULT_FEED_URL = 'https://ical.nbtca.space';
+export const SCHOOL_FEED_URL = 'https://ical.nbtca.space/school.ics';
 const MAX_TIMEOUT_MS = 2_147_483_647;
 
 export interface FetchFeedOptions {

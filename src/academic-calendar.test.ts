@@ -27,7 +27,7 @@ const SUMMER_2026 = ev('[NBT] 暑期', '2026-07-11', '2026-09-14');
 const WINTER_2027 = ev('[NBT] 寒假', '2027-01-20', '2027-02-26');
 const EXAM_WEEK_FALL_2026 = ev('[NBT] 期末考试周', '2027-01-13', '2027-01-20');
 const NATIONAL_DAY = ev('[NBT] 国庆节放假', '2026-10-01', '2026-10-08'); // 7-day public holiday, must NOT be treated as a term break
-const CLUB_EVENT = ev('NWDC', '2026-07-17', '2026-07-18', false); // no bracket prefix, not all-day
+const CLUB_EVENT = ev('NWDC', '2026-07-17', '2026-07-18', false);
 
 describe('isAcademicBreakEvent', () => {
   it('accepts the alternate summer-break title', () => {
@@ -42,11 +42,11 @@ describe('isAcademicBreakEvent', () => {
   it('rejects a same-titled but non-all-day event', () => {
     expect(isAcademicBreakEvent({ ...SUMMER_2026, isAllDay: false })).toBe(false);
   });
-  it('rejects a club event with no institutional prefix', () => {
+  it('rejects a club event', () => {
     expect(isAcademicBreakEvent(CLUB_EVENT)).toBe(false);
   });
-  it('rejects an unprefixed event even when its title matches a known break', () => {
-    expect(isAcademicBreakEvent(ev('寒假', '2027-01-20', '2027-02-26'))).toBe(false);
+  it('accepts the unprefixed titles of the school feed', () => {
+    expect(isAcademicBreakEvent(ev('寒假', '2027-01-20', '2027-02-26'))).toBe(true);
   });
   it('rejects empty and multiline institutional prefixes', () => {
     expect(isAcademicBreakEvent(ev('[] 寒假', '2027-01-20', '2027-02-26'))).toBe(false);
@@ -76,9 +76,13 @@ describe('currentAcademicWindow', () => {
     expect(currentAcademicWindow([CLUB_EVENT], new Date('2026-10-01'))).toBeNull();
   });
 
-  it('ignores an unprefixed event even when its title matches a semester marker', () => {
+  it('reads the unprefixed semester marker of the school feed', () => {
     const start = ev('秋季学期开始上课', '2026-09-14', '2026-09-15');
-    expect(currentAcademicWindow([start], new Date('2026-10-01'))).toBeNull();
+    expect(currentAcademicWindow([start], new Date('2026-10-01'))).toMatchObject({
+      status: 'inTerm',
+      semester: '1',
+      currentWeek: 3,
+    });
   });
 
   it('does not treat inherited object property names as semester markers', () => {
