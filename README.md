@@ -40,6 +40,27 @@ const text = result.status === 'modified' ? result.text : saved.text;
 saved = { text, validators: result.validators };
 ```
 
+## School calendar
+
+The school calendar is a separate feed. Pass its events to the academic
+helpers to get the current term, week, or break:
+
+```ts
+import {
+  SCHOOL_FEED_URL,
+  loadCalendar,
+  currentAcademicWindow,
+  inferWeekOneMonday,
+} from '@nbtca/nbtcal';
+
+const school = await loadCalendar({ url: SCHOOL_FEED_URL });
+const now = new Date();
+const span = 400 * 86400000;
+const events = school.inRange(new Date(now.getTime() - span), new Date(now.getTime() + span));
+const window = currentAcademicWindow(events, now); // inTerm, onBreak, or null
+const weekOne = inferWeekOneMonday(events, now); // 'YYYY-MM-DD' or null
+```
+
 ## Personal timetable
 
 The `@nbtca/nbtcal/timetable` subpath accepts an authenticated transport for the
