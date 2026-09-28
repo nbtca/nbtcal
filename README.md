@@ -1,8 +1,9 @@
 # @nbtca/nbtcal
 
-Typed ESM library for NBTCA calendar feeds and personal academic timetables.
-It handles parsing, recurrence expansion, date queries, heatmaps, and ICS
-generation without owning credentials, sessions, files, or UI.
+Typed ESM library for three NBTCA calendars: the club events feed, the school
+calendar, and a student's timetable from the campus system. It parses feeds,
+expands recurring events, answers date queries, builds heatmaps, and writes
+ICS. It never handles credentials, sessions, files, or UI.
 
 ## Install
 
@@ -25,12 +26,9 @@ const range = calendar.inRange(start, end);
 const dailyCounts = calendar.heatmap({ start, end, bucket: 'day' });
 ```
 
-Recurring events are expanded within each query window. Heatmaps are dense and
-include zero-count day or week buckets. Lower-level feed, parser, query, and ICS
-functions are available from the package root.
-
-To skip downloading an unchanged feed, keep the validators from the last
-response and send them back:
+Recurring events are expanded within each query window. Heatmaps include
+zero-count buckets. To skip downloading an unchanged feed, send back the
+validators from the last response:
 
 ```ts
 import { fetchFeedConditional } from '@nbtca/nbtcal';
@@ -96,16 +94,17 @@ const ics = timetableToIcs(timetable, {
 `findAcademicTerm` accepts an opaque `year:code` selector or the `year-1`,
 `year-2`, and `year-3` semester aliases.
 
-The host injects an authenticated transport; this package never receives
-credentials or a cookie jar. If JWXT omits authoritative calendar dates,
-`weekOneMonday` is required. Malformed rows produce structured warnings, and
-unresolved practice rows retain only allowlisted, identity-free fields.
+The host injects the authenticated transport, so this package never sees
+credentials or cookies. Pass `weekOneMonday` when JWXT omits term dates;
+`inferWeekOneMonday` can supply it from the school calendar. Malformed rows
+produce structured warnings, and unresolved practice rows keep only
+allowlisted, non-identifying fields.
 
 Schedules run on campus time (Asia/Shanghai) whatever the host zone.
 `campusIsoDate(date)`, `campusDateTime('2026-09-07', '08:00')` and
 `campusWeekday(date)` convert between instants and campus dates.
 
-## Quality checks
+## Development
 
 ```bash
 npm run check
