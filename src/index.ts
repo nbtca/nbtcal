@@ -16,7 +16,7 @@ export type {
   ParsedCalendarOccurrence,
   ParsedCalendarTime,
 } from './parse.js';
-export { eventToICS } from './serialize.js';
+export { eventToICS, eventsToICS } from './serialize.js';
 export type { EventToICSOptions } from './serialize.js';
 export { occurrencesInRange, upcoming, past, next, heatmap } from './query.js';
 export type {

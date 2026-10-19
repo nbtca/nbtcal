@@ -104,6 +104,46 @@ Schedules run on campus time (Asia/Shanghai) whatever the host zone.
 `campusIsoDate(date)`, `campusDateTime('2026-09-07', '08:00')` and
 `campusWeekday(date)` convert between instants and campus dates.
 
+## Personal exams and grades
+
+`@nbtca/nbtcal/academic` uses the same host-provided authenticated transport as
+the timetable API. It queries one academic term, follows pagination sequentially,
+and returns only allowlisted fields. It never accepts credentials or stores results.
+
+```ts
+import {
+  createNbtStudentRecordsClient,
+  createStudentExamCalendar,
+  studentExamsToIcs,
+} from '@nbtca/nbtcal/academic';
+
+const recordsClient = createNbtStudentRecordsClient(authenticatedTransport, {
+  baseUrl: 'https://jwxt-443.webvpn.nbt.edu.cn',
+});
+const exams = await recordsClient.fetchRecords('exams', current);
+const grades = await recordsClient.fetchRecords('grades', current);
+const { events, unscheduled } = createStudentExamCalendar(exams);
+
+if (unscheduled.length === 0) {
+  const ics = studentExamsToIcs(exams);
+}
+```
+
+`events` uses the shared `CalendarEvent` model and contains only exams with
+published start and end times, interpreted in Asia/Shanghai. Exams without a
+usable time remain in `unscheduled`; they never become all-day or guessed events.
+The ICS exporter rejects incomplete schedules rather than silently omitting exams.
+Its events use `CLASS:PRIVATE` and stable, identity-free UIDs. Room and time
+corrections keep the UID of a uniquely identified course/exam combination. When
+the school supplies multiple indistinguishable exams for that combination, their
+UIDs follow chronological order.
+
+Grades retain the school's numeric or textual result, credits and grade point.
+The library does not calculate an overall GPA or infer pass/fail thresholds.
+Hosts must escape returned text for their output context, including terminals.
+`STUDENT_RECORD_ROUTES` exposes the exact academic routes so hosts can restrict
+their transport. Errors expose a `StudentRecordsError` code without raw responses.
+
 ## Development
 
 ```bash

@@ -4,7 +4,7 @@
 
 `@nbtca/nbtcal` is a data-only library. It does not accept or store student
 credentials, cookies, verification codes, email configuration or session
-files. The private timetable API accepts only an authenticated transport
+files. The private timetable and academic APIs accept only an authenticated transport
 provided by its host application.
 
 The host application is responsible for:
@@ -17,6 +17,12 @@ The host application is responsible for:
 
 ## Privacy guarantees
 
+- Exam and grade parsing discards names, student ids, class details and unrelated
+  response fields. Only verified course, exam and grade fields are returned.
+- Exam calendar exports are private and contain no student identifier. Missing
+  exam times never become fabricated calendar events.
+- Returned strings are data; hosts must escape them for terminals, HTML or other
+  output contexts.
 - Timetable parsing uses an explicit field allowlist and discards the `xsxx`
   student-information object.
 - Unknown practice rows are reduced to a small identity-free field allowlist;
@@ -39,4 +45,4 @@ arguments and files.
 
 Report vulnerabilities through
 [GitHub Security Advisories](https://github.com/nbtca/nbtcal/security/advisories/new).
-Do not publish credential, session or timetable material in a public issue.
+Do not publish credentials, sessions, timetables, exam arrangements or grades in a public issue.
