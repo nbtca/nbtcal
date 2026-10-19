@@ -1,3 +1,4 @@
+import { stableHash } from '../identity.js';
 import {
   TimetableError,
   type IcsPeriodTime,
@@ -78,16 +79,6 @@ function foldLine(line: string): string[] {
   }
   if (current) folded.push(current);
   return folded;
-}
-
-function hash(value: string): string {
-  let first = 0x811c9dc5;
-  let second = 0x9e3779b9;
-  for (const byte of encoder.encode(value)) {
-    first = Math.imul(first ^ byte, 0x01000193) >>> 0;
-    second = Math.imul(second ^ byte, 0x85ebca6b) >>> 0;
-  }
-  return `${first.toString(36)}${second.toString(36)}`;
 }
 
 function defaultIfEmpty(value: string | undefined, fallback: string): string {
@@ -197,7 +188,7 @@ function buildEvents(
       const date = meetingDate(timetable, meeting, week, options.weekOneMonday);
       const classKey = meeting.sourceId
         ? `source:${meeting.sourceId}`
-        : `fallback:${hash(
+        : `fallback:${stableHash(
             [meeting.kind, meeting.courseName, ...meeting.teacherNames].join('\u001f'),
           )}`;
       const duplicateKey = [
@@ -250,7 +241,7 @@ function buildEvents(
         occurrenceIndex,
       ].join('\u001f');
       events.push({
-        uid: `nbt-${hash(identity)}@${uidDomain}`,
+        uid: `nbt-${stableHash(identity)}@${uidDomain}`,
         date: candidate.date,
         start: candidate.start,
         end: candidate.end,

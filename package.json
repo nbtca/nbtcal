@@ -1,7 +1,7 @@
 {
   "name": "@nbtca/nbtcal",
-  "version": "0.4.4",
-  "description": "Data-only calendar library for public feeds and authenticated personal timetables.",
+  "version": "0.4.5",
+  "description": "Data-only calendar library for public feeds, personal timetables, exams, and grades.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -13,6 +13,10 @@
     "./timetable": {
       "types": "./dist/timetable/index.d.ts",
       "import": "./dist/timetable/index.js"
+    },
+    "./academic": {
+      "types": "./dist/academic/index.d.ts",
+      "import": "./dist/academic/index.js"
     }
   },
   "scripts": {

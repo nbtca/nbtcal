@@ -38,6 +38,7 @@ try {
     join(temporaryDirectory, 'smoke.mjs'),
     [
       "import { FeedFetchError, FeedParseError, currentAcademicWindow, eventToICS, fetchFeedConditional, findBreakEvents, inferWeekOneMonday, isAcademicBreakEvent, loadCalendar } from '@nbtca/nbtcal';",
+      "import { createNbtStudentRecordsClient, createStudentExamCalendar, studentExamsToIcs, StudentRecordsError, STUDENT_RECORD_ROUTES } from '@nbtca/nbtcal/academic';",
       "import { TimetableError, campusDateTime, campusIsoDate, campusWeekday, createNbtTimetableClient, createTimetableSchedule, findAcademicTerm, parseWeekExpression, timetableToIcs } from '@nbtca/nbtcal/timetable';",
       '',
       'const assert = (condition, message) => { if (!condition) throw new TypeError(message); };',
@@ -83,12 +84,18 @@ try {
       "const schedule = createTimetableSchedule(timetable, { weekOneMonday: '2026-09-07' });",
       "assert(schedule.occurrences()[0]?.meeting.courseName === 'Algorithms', 'createTimetableSchedule failed');",
       "assert(timetableToIcs(timetable, { weekOneMonday: '2026-09-07', generatedAt: new Date('2026-08-01T00:00:00Z') }).includes('BEGIN:VEVENT'), 'timetableToIcs failed');",
+      "const academicClient = createNbtStudentRecordsClient(async () => new Response(JSON.stringify({ items: [{ xnm: '2026', xqm: '3', kcmc: 'Algorithms', kssj: '2026-12-10(09:00-11:00)' }], currentPage: 1, totalPage: 1, totalResult: 1 })), { baseUrl: 'https://jwxt.example' });",
+      "const examRecords = await academicClient.fetchRecords('exams', { academicYear: '2026', semester: '3' });",
+      "assert(createStudentExamCalendar(examRecords).events.length === 1, 'exam calendar conversion failed');",
+      "assert(studentExamsToIcs(examRecords).includes('CLASS:PRIVATE'), 'exam ICS export failed');",
+      "assert(new StudentRecordsError('SESSION_EXPIRED', 'expired').code === 'SESSION_EXPIRED' && STUDENT_RECORD_ROUTES.exams.code === 'N358105', 'academic exports failed');",
     ].join('\n'),
   );
   await writeFile(
     join(temporaryDirectory, 'consumer.ts'),
     [
       "import { FeedFetchError, FeedParseError, currentAcademicWindow, eventToICS, fetchFeedConditional, findBreakEvents, inferWeekOneMonday, isAcademicBreakEvent, loadCalendar, type AcademicWindow, type Calendar, type CalendarEvent, type EventToICSOptions, type FeedFetchResult, type FeedValidators, type FetchFeedConditionalOptions, type HeatmapBucket, type LoadCalendarOptions, type OnBreak } from '@nbtca/nbtcal';",
+      "import { createNbtStudentRecordsClient, createStudentExamCalendar, studentExamsToIcs, type NbtStudentRecordsClient, type StudentExamRecords, type StudentGradeRecords, type StudentExamCalendar } from '@nbtca/nbtcal/academic';",
       "import { TimetableError, campusWeekday, createNbtTimetableClient, createTimetableSchedule, findAcademicTerm, timetableToIcs, type AcademicTerm, type AuthenticatedTransport, type CreateNbtTimetableClientOptions, type NbtTimetableClient, type Timetable, type TimetableErrorCode, type TimetableMeeting, type TimetableOccurrence, type TimetablePeriod, type TimetableSchedule, type TimetableScheduleOptions, type TimetableToIcsOptions, type TimetableUntimedCourse, type TimetableUnresolvedItem, type TransportResponse, type Weekday } from '@nbtca/nbtcal/timetable';",
       '',
       "const event: CalendarEvent = { uid: 'event-a', title: '[NBT] 暑期', start: new Date(2026, 6, 1), end: new Date(2026, 6, 5), isAllDay: true, location: null, description: null, recurring: false };",
@@ -126,7 +133,13 @@ try {
       "const timetableErrorCode: TimetableErrorCode = 'SESSION_EXPIRED';",
       "const timetableError: TimetableError = new TimetableError(timetableErrorCode, 'expired');",
       '',
-      'export const consumerContract = { academicBreak, academicWindow, breakEvents, calendarPromise, client, conditionalPromise, eventIcs, feedErrors, heatmapBucket, occurrence, selectedTerm, timetableError, timetableIcs, weekday, weekOneMonday };',
+      "const academicClient: NbtStudentRecordsClient = createNbtStudentRecordsClient(transport, { baseUrl: 'https://jwxt.example' });",
+      "const examsPromise: Promise<StudentExamRecords> = academicClient.fetchRecords('exams', term);",
+      "const gradesPromise: Promise<StudentGradeRecords> = academicClient.fetchRecords('grades', term);",
+      "const emptyExams: StudentExamRecords = { kind: 'exams', term, items: [], fetchedAt: new Date() };",
+      'const examCalendar: StudentExamCalendar = createStudentExamCalendar(emptyExams);',
+      'const examIcs: string = studentExamsToIcs(emptyExams);',
+      'export const consumerContract = { academicClient, examsPromise, gradesPromise, examCalendar, examIcs, academicBreak, academicWindow, breakEvents, calendarPromise, client, conditionalPromise, eventIcs, feedErrors, heatmapBucket, occurrence, selectedTerm, timetableError, timetableIcs, weekday, weekOneMonday };',
     ].join('\n'),
   );
 

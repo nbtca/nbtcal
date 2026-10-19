@@ -38,6 +38,8 @@ function escapeText(value: string): string {
 export interface EventToICSOptions {
   prodId?: string;
   now?: Date;
+  calendarName?: string;
+  classification?: 'PUBLIC' | 'PRIVATE' | 'CONFIDENTIAL';
 }
 
 /** RFC 5545 §3.1 content-line folding: split at 75 octets, continuations begin with a space. */
@@ -64,10 +66,15 @@ function foldLine(line: string): string {
 }
 
 export function eventToICS(event: CalendarEvent, options: EventToICSOptions = {}): string {
+  return eventsToICS([event], options);
+}
+
+export function eventsToICS(
+  events: readonly CalendarEvent[],
+  options: EventToICSOptions = {},
+): string {
   const prodId = options.prodId ?? DEFAULT_PRODID;
   const now = options.now ?? new Date();
-  assertValidDate(event.start, 'event.start');
-  if (event.end) assertValidDate(event.end, 'event.end');
   assertValidDate(now, 'options.now');
 
   const lines: string[] = [
@@ -76,25 +83,31 @@ export function eventToICS(event: CalendarEvent, options: EventToICSOptions = {}
     `PRODID:${escapeText(prodId)}`,
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    'BEGIN:VEVENT',
-    `UID:${escapeText(event.uid)}`,
-    `DTSTAMP:${formatUTC(now)}`,
   ];
 
-  if (event.isAllDay) {
-    lines.push(`DTSTART;VALUE=DATE:${formatDate(event.start)}`);
-    const end = event.end ?? nextCivilDay(event.start);
-    lines.push(`DTEND;VALUE=DATE:${formatDate(end)}`);
-  } else {
-    lines.push(`DTSTART:${formatUTC(event.start)}`);
-    if (event.end) lines.push(`DTEND:${formatUTC(event.end)}`);
+  if (options.calendarName !== undefined)
+    lines.push(`X-WR-CALNAME:${escapeText(options.calendarName)}`);
+  for (const event of events) {
+    assertValidDate(event.start, 'event.start');
+    if (event.end) assertValidDate(event.end, 'event.end');
+    lines.push('BEGIN:VEVENT', `UID:${escapeText(event.uid)}`, `DTSTAMP:${formatUTC(now)}`);
+    if (options.classification) lines.push(`CLASS:${options.classification}`);
+    if (event.isAllDay) {
+      lines.push(`DTSTART;VALUE=DATE:${formatDate(event.start)}`);
+      const end = event.end ?? nextCivilDay(event.start);
+      lines.push(`DTEND;VALUE=DATE:${formatDate(end)}`);
+    } else {
+      lines.push(`DTSTART:${formatUTC(event.start)}`);
+      if (event.end) lines.push(`DTEND:${formatUTC(event.end)}`);
+    }
+
+    if (event.title !== null) lines.push(`SUMMARY:${escapeText(event.title)}`);
+    if (event.location !== null) lines.push(`LOCATION:${escapeText(event.location)}`);
+    if (event.description !== null) lines.push(`DESCRIPTION:${escapeText(event.description)}`);
+
+    lines.push('END:VEVENT');
   }
-
-  if (event.title !== null) lines.push(`SUMMARY:${escapeText(event.title)}`);
-  if (event.location !== null) lines.push(`LOCATION:${escapeText(event.location)}`);
-  if (event.description !== null) lines.push(`DESCRIPTION:${escapeText(event.description)}`);
-
-  lines.push('END:VEVENT', 'END:VCALENDAR');
+  lines.push('END:VCALENDAR');
 
   return lines.map(foldLine).join('\r\n') + '\r\n';
 }
